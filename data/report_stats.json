@@ -1,0 +1,376 @@
+{
+  "generated_note": "isochrone_map 통계 번들 (수치는 data/ 산출물 기준)",
+  "kpi": {
+    "hospitals": 48,
+    "sigungu": 250,
+    "iso_bands_min": [
+      15,
+      30,
+      45,
+      60
+    ],
+    "deadzone_over60": 34,
+    "deadzone_filled_exact": 34,
+    "a3b3": 23,
+    "gen_hosp_total": 337,
+    "sup_hosp_total": 48,
+    "sigungu_no_general": 82,
+    "triple_vulnerable": 15
+  },
+  "aging_tertiles": [
+    214.4,
+    407.5
+  ],
+  "bivar_dist": {
+    "A2B1": 57,
+    "A3B1": 16,
+    "A1B1": 72,
+    "A3B2": 45,
+    "A3B3": 23,
+    "A2B2": 17,
+    "A1B2": 9,
+    "A2B3": 9,
+    "A1B3": 2
+  },
+  "access": {
+    "over60_count": 34,
+    "exact_filled": 34,
+    "median_over60": 86.0,
+    "max_over60_excl_island": 295.0,
+    "island_suspects": [
+      "옹진군",
+      "제주시",
+      "서귀포시"
+    ]
+  },
+  "supply": {
+    "general_hospitals": 337,
+    "superior_hospitals": 48,
+    "sigungu_with_general": 168,
+    "sigungu_no_general": 82
+  },
+  "triple_vulnerable": [
+    {
+      "sido": "인천광역시",
+      "name": "옹진군",
+      "access_min": 392.4,
+      "aging_index": 776.0,
+      "hosp_gen_cnt": 0,
+      "suspect": true
+    },
+    {
+      "sido": "경상북도",
+      "name": "울릉군",
+      "access_min": 295.3,
+      "aging_index": 637.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "울진군",
+      "access_min": 165.5,
+      "aging_index": 429.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "영양군",
+      "access_min": 112.7,
+      "aging_index": 836.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "완도군",
+      "access_min": 112.4,
+      "aging_index": 488.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "진도군",
+      "access_min": 110.2,
+      "aging_index": 552.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "영덕군",
+      "access_min": 108.9,
+      "aging_index": 815.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "봉화군",
+      "access_min": 106.0,
+      "aging_index": 888.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "강원도",
+      "name": "고성군",
+      "access_min": 99.7,
+      "aging_index": 484.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "신안군",
+      "access_min": 97.5,
+      "aging_index": 621.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "충청남도",
+      "name": "태안군",
+      "access_min": 97.0,
+      "aging_index": 632.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경기도",
+      "name": "연천군",
+      "access_min": 93.6,
+      "aging_index": 450.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "강원도",
+      "name": "정선군",
+      "access_min": 87.9,
+      "aging_index": 627.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "청송군",
+      "access_min": 86.4,
+      "aging_index": 893.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "구례군",
+      "access_min": 76.5,
+      "aging_index": 688.0,
+      "hosp_gen_cnt": 0,
+      "suspect": false
+    }
+  ],
+  "farthest": [
+    {
+      "sido": "인천광역시",
+      "name": "옹진군",
+      "access_min": 392.4,
+      "suspect": true
+    },
+    {
+      "sido": "제주특별자치도",
+      "name": "제주시",
+      "access_min": 341.6,
+      "suspect": true
+    },
+    {
+      "sido": "제주특별자치도",
+      "name": "서귀포시",
+      "access_min": 326.9,
+      "suspect": true
+    },
+    {
+      "sido": "경상북도",
+      "name": "울릉군",
+      "access_min": 295.3,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "울진군",
+      "access_min": 165.5,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "영양군",
+      "access_min": 112.7,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "완도군",
+      "access_min": 112.4,
+      "suspect": false
+    },
+    {
+      "sido": "전라남도",
+      "name": "진도군",
+      "access_min": 110.2,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "영덕군",
+      "access_min": 108.9,
+      "suspect": false
+    },
+    {
+      "sido": "강원도",
+      "name": "태백시",
+      "access_min": 108.0,
+      "suspect": false
+    },
+    {
+      "sido": "경상북도",
+      "name": "봉화군",
+      "access_min": 106.0,
+      "suspect": false
+    },
+    {
+      "sido": "강원도",
+      "name": "고성군",
+      "access_min": 99.7,
+      "suspect": false
+    }
+  ],
+  "ohca": {
+    "n": 17,
+    "r_dead_surv": -0.116,
+    "r_dead_surv_exJeju": -0.332,
+    "r_aging_surv": -0.589,
+    "r_dead_inc": 0.517,
+    "sido_table": [
+      {
+        "sido": "제주특별자치도",
+        "deadzone_pct": 100.0,
+        "aging": 184.0,
+        "survival": 15.3,
+        "incidence": 36.5
+      },
+      {
+        "sido": "경상북도",
+        "deadzone_pct": 52.0,
+        "aging": 536.0,
+        "survival": 10.9,
+        "incidence": 27.3
+      },
+      {
+        "sido": "강원도",
+        "deadzone_pct": 39.0,
+        "aging": 406.0,
+        "survival": 13.1,
+        "incidence": 32.3
+      },
+      {
+        "sido": "전라남도",
+        "deadzone_pct": 36.0,
+        "aging": 479.0,
+        "survival": 10.7,
+        "incidence": 27.9
+      },
+      {
+        "sido": "충청남도",
+        "deadzone_pct": 19.0,
+        "aging": 405.0,
+        "survival": 13.2,
+        "incidence": 30.7
+      },
+      {
+        "sido": "인천광역시",
+        "deadzone_pct": 10.0,
+        "aging": 306.0,
+        "survival": 15.4,
+        "incidence": 27.1
+      },
+      {
+        "sido": "경기도",
+        "deadzone_pct": 2.0,
+        "aging": 199.0,
+        "survival": 14.2,
+        "incidence": 26.6
+      },
+      {
+        "sido": "서울특별시",
+        "deadzone_pct": 0.0,
+        "aging": 262.0,
+        "survival": 18.9,
+        "incidence": 21.4
+      },
+      {
+        "sido": "부산광역시",
+        "deadzone_pct": 0.0,
+        "aging": 348.0,
+        "survival": 13.8,
+        "incidence": 27.9
+      },
+      {
+        "sido": "대구광역시",
+        "deadzone_pct": 0.0,
+        "aging": 372.0,
+        "survival": 12.7,
+        "incidence": 21.9
+      },
+      {
+        "sido": "광주광역시",
+        "deadzone_pct": 0.0,
+        "aging": 185.0,
+        "survival": 13.7,
+        "incidence": 22.7
+      },
+      {
+        "sido": "대전광역시",
+        "deadzone_pct": 0.0,
+        "aging": 213.0,
+        "survival": 13.3,
+        "incidence": 25.7
+      },
+      {
+        "sido": "울산광역시",
+        "deadzone_pct": 0.0,
+        "aging": 170.0,
+        "survival": 9.7,
+        "incidence": 31.3
+      },
+      {
+        "sido": "세종특별자치시",
+        "deadzone_pct": 0.0,
+        "aging": 71.0,
+        "survival": 23.9,
+        "incidence": 25.1
+      },
+      {
+        "sido": "충청북도",
+        "deadzone_pct": 0.0,
+        "aging": 390.0,
+        "survival": 13.9,
+        "incidence": 35.2
+      },
+      {
+        "sido": "경상남도",
+        "deadzone_pct": 0.0,
+        "aging": 454.0,
+        "survival": 12.6,
+        "incidence": 29.0
+      },
+      {
+        "sido": "전라북도",
+        "deadzone_pct": 0.0,
+        "aging": 459.0,
+        "survival": 11.5,
+        "incidence": 30.3
+      }
+    ]
+  }
+}

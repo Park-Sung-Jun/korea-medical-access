@@ -1,0 +1,26 @@
+# node / playwright (개발 전용)
+node_modules/
+package.json
+package-lock.json
+
+# 빌드 산출물
+dist/
+dist.zip
+screenshots/
+charts/
+__pycache__/
+scripts/__pycache__/
+
+# 비밀키 — 절대 커밋 금지
+config.js
+scripts/ors_key.txt
+
+# 대용량/파생 데이터 (정적 사이트에 불필요, 재생성 가능)
+data/pop_202512.json
+data/sigungu.geojson
+data/sigungu_try1.json
+data/*.csv
+
+# 정적 사이트가 fetch 하는 데이터는 커밋:
+#   data/hospitals.geojson, data/isochrones.geojson,
+#   data/sigungu_bivariate.geojson, data/report_stats.json, data/hospitals.json
