@@ -6,12 +6,11 @@
 <title>상급종합병원 접근성 · 고령화 지도</title>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="config.js" onerror="window.MAP_KEYS=window.MAP_KEYS||{}"></script>
 <style>
-  :root{
-    --bg:#ffffff;--ink:#111111;--muted:#6b7280;--line:#e5e7eb;
-    --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-  }
+  :root{--bg:#fff;--ink:#111;--muted:#6b7280;--line:#e5e7eb;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);background:var(--bg)}
   #app{display:flex;flex-direction:column;height:100%}
@@ -26,29 +25,41 @@
   .seg button.on{background:#111;color:#fff;font-weight:600}
   .badge{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap}
   #map{flex:1;position:relative}
-  .panel{position:absolute;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
-  .ctrl{right:16px;top:16px;padding:11px 12px;font-size:12px;min-width:172px}
-  .ctrl .grp{margin-bottom:9px}
-  .ctrl .grp:last-child{margin-bottom:0}
+  .panel{position:absolute;z-index:10;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .ctrl{right:16px;top:16px;padding:11px 12px;font-size:12px;min-width:188px}
+  .ctrl .grp{margin-bottom:9px}.ctrl .grp:last-child{margin-bottom:0}
   .ctrl label.lbl{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
   .ctrl select{width:100%;font-family:inherit;font-size:12.5px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:#111}
-  .ctrl .chk{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px}
+  .ctrl .chk{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;margin-top:7px}
   .ctrl .op{display:flex;align-items:center;gap:8px;color:var(--muted);margin-top:7px}
-  .ctrl input[type=range]{width:90px;accent-color:#111}
-  .legend{left:16px;bottom:16px;padding:12px 14px;max-width:240px}
+  .ctrl input[type=range]{width:88px;accent-color:#111}
+  .sim{left:16px;top:16px;padding:11px 13px;max-width:236px;font-size:12px}
+  .sim h3{margin:0 0 6px;font-size:12.5px;font-weight:700}
+  .sim .hint{color:var(--muted);font-size:11.5px;line-height:1.5}
+  .sim .selrow{margin-top:8px;font-size:11.5px}
+  .sim .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .sim button{margin-top:9px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff;
+    color:#111;font-family:inherit;font-size:12px;padding:6px;cursor:pointer}
+  .sim button:hover{background:#f8f9fa}
+  .legend{left:16px;bottom:16px;padding:12px 14px;max-width:250px}
   .legend h2{font-size:12px;margin:0 0 9px;font-weight:700}
   .legend .row{display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0;color:#222}
   .legend .sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.10);flex:0 0 14px}
   .legend .note{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5}
+  .legend hr{border:0;border-top:1px solid var(--line);margin:9px 0}
   .bivar-grid{display:grid;grid-template-columns:auto repeat(3,20px);grid-template-rows:auto repeat(3,20px);gap:2px;align-items:center;margin:2px 0 4px}
   .bivar-grid .cell{width:20px;height:20px;border-radius:2px}
   .bivar-grid .axt{font-size:10px;color:var(--muted)}
   .bivar-grid .yl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;color:var(--muted);justify-self:center}
+  .pyramid{right:16px;bottom:100px;width:300px;padding:10px 12px;display:none}
+  .pyramid .pt{font-size:12px;font-weight:700;margin-bottom:2px}
+  .pyramid .ps{font-size:10.5px;color:var(--muted);margin-bottom:4px}
+  #py-chart{width:100%;height:188px}
   .maplibregl-popup-content{font-family:var(--font);border-radius:8px;border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.10);padding:9px 11px}
   .pop-name{font-weight:700;font-size:13px}.pop-meta{font-size:11px;color:var(--muted);margin-top:2px}
-  .pop-k{color:var(--muted)}.pop-v{font-weight:600}
-  .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:#111;color:#fff;font-size:12px;
-    padding:7px 12px;border-radius:8px;display:none;z-index:9;max-width:80%}
+  .pop-k{color:var(--muted)}.pop-v{font-weight:600}.pop-row{font-size:12px;margin-top:2px}
+  .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:12;background:#111;color:#fff;font-size:12px;
+    padding:7px 12px;border-radius:8px;display:none;max-width:80%}
 </style>
 </head>
 <body>
@@ -59,19 +70,24 @@
       <button data-view="iso" class="on">접근성 등시선</button>
       <button data-view="bivar">접근성×고령화</button>
       <button data-view="aging">고령화지수</button>
-      <button data-view="here">여기서 등시선</button>
     </div>
     <span class="spacer"></span>
-    <span class="badge" id="badge-hosp">병원 47개소 · 제5기</span>
-    <span class="badge" id="badge-ctx">자동차 운전</span>
+    <span class="badge" id="badge-hosp">병원 48개소 · 제5기+α</span>
   </div>
   <div id="map">
+    <div class="panel sim" id="sim">
+      <h3>커버리지 시뮬레이터</h3>
+      <div class="hint"><b>병원</b>을 클릭 → 그 병원 등시선 · <b>빈 곳</b>을 클릭 → 가상 병원 등시선. 둘이 겹쳐 “여기 병원이 생기면” 커버리지를 봅니다.</div>
+      <div class="selrow" id="sim-sel"></div>
+      <button id="sim-clear">커버리지 지우기</button>
+    </div>
     <div class="panel ctrl">
       <div class="grp">
         <label class="lbl">배경지도</label>
         <select id="basemap">
           <option value="carto-positron">밝은 지도 (CARTO)</option>
           <option value="carto-voyager">기본 지도 (CARTO)</option>
+          <option value="osm">상세 지도 (OpenStreetMap)</option>
           <option value="carto-dark">어두운 지도 (CARTO)</option>
           <option value="vworld-base">VWorld 일반</option>
           <option value="vworld-gray">VWorld 회색</option>
@@ -79,273 +95,247 @@
         </select>
       </div>
       <div class="grp">
+        <label class="chk"><input type="checkbox" id="toggle-sgg" checked /> 시군구 경계·이름</label>
         <label class="chk"><input type="checkbox" id="toggle-hosp" checked /> 병원 위치 표시</label>
+        <label class="chk"><input type="checkbox" id="toggle-pyramid" /> 인구 피라미드(시군구 호버)</label>
         <div class="op"><span>채움 투명도</span><input type="range" id="opacity" min="20" max="95" value="60" /></div>
       </div>
     </div>
     <div class="panel legend" id="legend"></div>
+    <div class="panel pyramid" id="pyramid">
+      <div class="pt" id="py-title">시군구</div>
+      <div class="ps">연령·성별 인구 (KOSIS 2025.12) · <span style="color:#3182bd">■</span>남 <span style="color:#e6550d">■</span>여</div>
+      <div id="py-chart"></div>
+    </div>
     <div class="toast" id="toast"></div>
   </div>
 </div>
 <script>
 const KEYS = window.MAP_KEYS || {};
-const ISO_COLORS = {15:'#1a9850',30:'#a6d96a',45:'#fee08b',60:'#fc8d59'};
-// 3x3 바이베리엇 팔레트 (A=고령화 1→3, B=접근성 1좋음→3나쁨). A3B3=최취약(짙음)
-const BIVAR = {
-  A1B1:'#e8e8e8',A1B2:'#dfb0d6',A1B3:'#be64ac',
-  A2B1:'#ace4e4',A2B2:'#a5add3',A2B3:'#8c62aa',
-  A3B1:'#5ac8c8',A3B2:'#5698b9',A3B3:'#3b4994'
-};
-const AGING = ['#fff7ec','#fdd49e','#fc8d59','#d7301f']; // 4단계 순차
+const ISO_COLORS={15:'#1a9850',30:'#a6d96a',45:'#fee08b',60:'#fc8d59'};
+const HOSPISO={15:'#08519c',30:'#3182bd',45:'#6baed6',60:'#c6dbef'};   // 선택 병원(파랑)
+const PTISO={15:'#a63603',30:'#e6550d',45:'#fd8d3c',60:'#fdd0a2'};     // 가상 병원(주황)
+const BIVAR={A1B1:'#e8e8e8',A1B2:'#dfb0d6',A1B3:'#be64ac',A2B1:'#ace4e4',A2B2:'#a5add3',
+  A2B3:'#8c62aa',A3B1:'#5ac8c8',A3B2:'#5698b9',A3B3:'#3b4994'};
+const AGING=['#fff7ec','#fdd49e','#fc8d59','#d7301f'];
+const isoMatch=pal=>['match',['get','minutes'],15,pal[15],30,pal[30],45,pal[45],60,pal[60],'#ccc'];
 
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';
   clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',4200);}
 
 /* ---------- 배경지도 ---------- */
-function vworldStyle(layer, hybrid){
-  const k=KEYS.vworld;
-  const u=l=>`https://api.vworld.kr/req/wmts/1.0.0/${k}/${l}/{z}/{y}/{x}.${l==='Satellite'?'jpeg':'png'}`;
+function vworldStyle(layer,hybrid){
+  const k=KEYS.vworld,u=l=>`https://api.vworld.kr/req/wmts/1.0.0/${k}/${l}/{z}/{y}/{x}.${l==='Satellite'?'jpeg':'png'}`;
   const sources={vw:{type:'raster',tiles:[u(layer)],tileSize:256,attribution:'© VWorld'}};
   const layers=[{id:'vw',type:'raster',source:'vw'}];
-  if(hybrid){sources.vwh={type:'raster',tiles:[u('Hybrid')],tileSize:256};
-    layers.push({id:'vwh',type:'raster',source:'vwh'});}
+  if(hybrid){sources.vwh={type:'raster',tiles:[u('Hybrid')],tileSize:256};layers.push({id:'vwh',type:'raster',source:'vwh'});}
   return {version:8,glyphs:'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',sources,layers};
 }
+function osmStyle(){return {version:8,glyphs:'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+  sources:{osm:{type:'raster',tiles:['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png','https://b.tile.openstreetmap.org/{z}/{x}/{y}.png','https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© OpenStreetMap'}},
+  layers:[{id:'osm',type:'raster',source:'osm'}]};}
 const CARTO=n=>`https://basemaps.cartocdn.com/gl/${n}/style.json`;
-function basemapStyle(id){
-  switch(id){
-    case 'carto-voyager': return CARTO('voyager-gl-style');
-    case 'carto-dark': return CARTO('dark-matter-gl-style');
-    case 'vworld-base': return KEYS.vworld?vworldStyle('Base',false):null;
-    case 'vworld-gray': return KEYS.vworld?vworldStyle('gray',false):null;
-    case 'vworld-satellite': return KEYS.vworld?vworldStyle('Satellite',true):null;
-    default: return CARTO('positron-gl-style');
-  }
-}
+function basemapStyle(id){switch(id){
+  case 'carto-voyager':return CARTO('voyager-gl-style');
+  case 'carto-dark':return CARTO('dark-matter-gl-style');
+  case 'osm':return osmStyle();
+  case 'vworld-base':return KEYS.vworld?vworldStyle('Base',false):null;
+  case 'vworld-gray':return KEYS.vworld?vworldStyle('gray',false):null;
+  case 'vworld-satellite':return KEYS.vworld?vworldStyle('Satellite',true):null;
+  default:return CARTO('positron-gl-style');}}
 
 /* ---------- 상태/데이터 ---------- */
-let DATA={iso:null,sgg:null,hosp:null,hasBivar:false};
-let view='iso';
-let map;
-let clickMarker=null, clickBusy=false;
+let DATA={iso:null,sgg:null,hosp:null,hospiso:null,hasBivar:false};
+let PYR=null, view='iso', map, pyChart=null;
+let selHosp=null, ptMarker=null, ptBusy=false;
 
 async function loadData(){
   const get=async u=>{try{const r=await fetch(u);return r.ok?await r.json():null;}catch(e){return null;}};
   DATA.hosp=await get('data/hospitals.geojson');
-  DATA.iso =await get('data/isochrones.geojson');
-  const bv =await get('data/sigungu_bivariate.geojson');
-  DATA.hasBivar=!!bv;
-  DATA.sgg = bv || await get('data/sigungu.geojson');
+  DATA.iso=await get('data/isochrones.geojson');
+  DATA.hospiso=await get('data/hospital_isochrones.geojson');
+  const bv=await get('data/sigungu_bivariate.geojson');
+  DATA.hasBivar=!!bv; DATA.sgg=bv||await get('data/sigungu.geojson');
+  PYR=await get('data/pop_pyramid.json');
 }
 
-/* 스타일(배경지도) 로드 시마다 데이터 레이어 재구성 */
 function addAppLayers(){
-  if(!map.getStyle()) return;
-  // 심볼 라벨 아래에 채움 삽입(있으면)
-  let before;
-  for(const l of map.getStyle().layers){ if(l.type==='symbol'){before=l.id;break;} }
-
-  if(DATA.sgg && !map.getSource('sgg')) map.addSource('sgg',{type:'geojson',data:DATA.sgg});
-  if(DATA.iso && !map.getSource('iso')) map.addSource('iso',{type:'geojson',data:DATA.iso});
-  if(DATA.hosp && !map.getSource('hosp')) map.addSource('hosp',{type:'geojson',data:DATA.hosp});
-
+  if(!map.getStyle())return;
+  let before; for(const l of map.getStyle().layers){if(l.type==='symbol'){before=l.id;break;}}
+  const add=(s,d)=>{if(d&&!map.getSource(s))map.addSource(s,{type:'geojson',data:d});};
+  add('sgg',DATA.sgg);add('iso',DATA.iso);add('hosp',DATA.hosp);add('hospiso',DATA.hospiso);
+  if(!map.getSource('ptiso'))map.addSource('ptiso',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   const op=document.getElementById('opacity').value/100;
 
-  // 고령화 단순 코로플레스
-  if(DATA.sgg && !map.getLayer('sgg-aging')){
-    map.addLayer({id:'sgg-aging',type:'fill',source:'sgg',layout:{visibility:'none'},
-      paint:{'fill-color':['step',['get','aging_index'],
-        AGING[0],150,AGING[1],250,AGING[2],400,AGING[3]],'fill-opacity':op}},before);
-  }
-  // 바이베리엇
-  if(DATA.sgg && DATA.hasBivar && !map.getLayer('sgg-bivar')){
-    const m=['match',['get','bivar_class']];
-    Object.entries(BIVAR).forEach(([k,v])=>m.push(k,v));
-    m.push('#e8e8e8');
-    map.addLayer({id:'sgg-bivar',type:'fill',source:'sgg',layout:{visibility:'none'},
-      paint:{'fill-color':m,'fill-opacity':op}},before);
-  }
-  // 시군구 경계선(고령화/바이베리엇 공용)
-  if(DATA.sgg && !map.getLayer('sgg-line')){
-    map.addLayer({id:'sgg-line',type:'line',source:'sgg',layout:{visibility:'none'},
-      paint:{'line-color':'rgba(0,0,0,0.22)','line-width':0.4}},before);
-  }
-  // 등시선
-  if(DATA.iso && !map.getLayer('iso-fill')){
-    map.addLayer({id:'iso-fill',type:'fill',source:'iso',
-      paint:{'fill-color':['match',['get','minutes'],15,ISO_COLORS[15],30,ISO_COLORS[30],
-        45,ISO_COLORS[45],60,ISO_COLORS[60],'#cccccc'],'fill-opacity':op}},before);
-    map.addLayer({id:'iso-line',type:'line',source:'iso',
-      paint:{'line-color':'rgba(0,0,0,0.16)','line-width':0.4}},before);
-  }
-  // 클릭형 등시선(빈 소스로 시작, 클릭 시 setData)
-  if(!map.getSource('clickiso')) map.addSource('clickiso',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  if(!map.getLayer('clickiso-fill')){
-    map.addLayer({id:'clickiso-fill',type:'fill',source:'clickiso',layout:{visibility:'none'},
-      paint:{'fill-color':['match',['get','minutes'],15,ISO_COLORS[15],30,ISO_COLORS[30],
-        45,ISO_COLORS[45],60,ISO_COLORS[60],'#cccccc'],'fill-opacity':op}},before);
-    map.addLayer({id:'clickiso-line',type:'line',source:'clickiso',layout:{visibility:'none'},
-      paint:{'line-color':'rgba(0,0,0,0.16)','line-width':0.5}},before);
-  }
+  if(DATA.sgg&&!map.getLayer('sgg-aging'))map.addLayer({id:'sgg-aging',type:'fill',source:'sgg',layout:{visibility:'none'},
+    paint:{'fill-color':['step',['get','aging_index'],AGING[0],150,AGING[1],250,AGING[2],400,AGING[3]],'fill-opacity':op}},before);
+  if(DATA.sgg&&DATA.hasBivar&&!map.getLayer('sgg-bivar')){const m=['match',['get','bivar_class']];
+    Object.entries(BIVAR).forEach(([k,v])=>m.push(k,v));m.push('#e8e8e8');
+    map.addLayer({id:'sgg-bivar',type:'fill',source:'sgg',layout:{visibility:'none'},paint:{'fill-color':m,'fill-opacity':op}},before);}
+  if(DATA.iso&&!map.getLayer('iso-fill')){
+    map.addLayer({id:'iso-fill',type:'fill',source:'iso',paint:{'fill-color':isoMatch(ISO_COLORS),'fill-opacity':op}},before);
+    map.addLayer({id:'iso-line',type:'line',source:'iso',paint:{'line-color':'rgba(0,0,0,.16)','line-width':.4}},before);}
+  // 선택 병원/가상 병원 등시선(겹침 비교용, 반투명)
+  if(DATA.hospiso&&!map.getLayer('hospiso-fill')){
+    map.addLayer({id:'hospiso-fill',type:'fill',source:'hospiso',filter:['==',['get','hosp_id'],-1],
+      paint:{'fill-color':isoMatch(HOSPISO),'fill-opacity':.45}},before);
+    map.addLayer({id:'hospiso-line',type:'line',source:'hospiso',filter:['==',['get','hosp_id'],-1],
+      paint:{'line-color':'#08519c','line-width':.5,'line-opacity':.5}},before);}
+  if(!map.getLayer('ptiso-fill')){
+    map.addLayer({id:'ptiso-fill',type:'fill',source:'ptiso',paint:{'fill-color':isoMatch(PTISO),'fill-opacity':.45}},before);
+    map.addLayer({id:'ptiso-line',type:'line',source:'ptiso',paint:{'line-color':'#a63603','line-width':.6,'line-opacity':.55}},before);}
+  // 시군구 경계/hover/라벨
+  if(DATA.sgg&&!map.getLayer('sgg-line'))map.addLayer({id:'sgg-line',type:'line',source:'sgg',
+    paint:{'line-color':'rgba(17,17,17,.32)','line-width':['interpolate',['linear'],['zoom'],6,.4,9,.9,12,1.4]}},before);
+  if(DATA.sgg&&!map.getLayer('sgg-hover'))map.addLayer({id:'sgg-hover',type:'fill',source:'sgg',paint:{'fill-color':'#000','fill-opacity':0}});
+  if(DATA.sgg&&!map.getLayer('sgg-label'))map.addLayer({id:'sgg-label',type:'symbol',source:'sgg',minzoom:7.2,
+    layout:{'text-field':['get','name'],'text-size':['interpolate',['linear'],['zoom'],7,9.5,10,12.5],'text-font':['Open Sans Regular'],'text-padding':4},
+    paint:{'text-color':'#374151','text-halo-color':'#fff','text-halo-width':1.6}});
   // 병원 포인트
-  if(DATA.hosp && !map.getLayer('hosp-pt')){
+  if(DATA.hosp&&!map.getLayer('hosp-pt')){
+    map.addLayer({id:'hosp-sel',type:'circle',source:'hosp',filter:['==',['get','id'],-1],
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],6,7,10,12],'circle-color':'rgba(8,81,156,.18)','circle-stroke-color':'#08519c','circle-stroke-width':2}});
     map.addLayer({id:'hosp-pt',type:'circle',source:'hosp',
-      paint:{'circle-radius':['interpolate',['linear'],['zoom'],6,3,10,6],
-        'circle-color':'#111','circle-stroke-color':'#fff','circle-stroke-width':1.3}});
-    map.addLayer({id:'hosp-label',type:'symbol',source:'hosp',minzoom:8.5,
-      layout:{'text-field':['get','name'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top',
-        'text-font':['Open Sans Regular','Noto Sans Regular']},
-      paint:{'text-color':'#111','text-halo-color':'#fff','text-halo-width':1.4}});
-  }
-  applyView();
-  applyHospToggle();
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],6,3.2,10,6],'circle-color':'#111','circle-stroke-color':'#fff','circle-stroke-width':1.3}});
+    map.addLayer({id:'hosp-label',type:'symbol',source:'hosp',minzoom:8,
+      layout:{'text-field':['get','name'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-font':['Open Sans Regular']},
+      paint:{'text-color':'#111','text-halo-color':'#fff','text-halo-width':1.5}});}
+  applyView();applySggToggle();applyHospToggle();applyCoverage();
 }
-
-function setVis(id,v){ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility',v?'visible':'none'); }
+function setVis(id,v){if(map.getLayer(id))map.setLayoutProperty(id,'visibility',v?'visible':'none');}
 
 function applyView(){
-  const isoOn=view==='iso', agingOn=view==='aging', bivOn=view==='bivar', hereOn=view==='here';
-  setVis('iso-fill',isoOn);setVis('iso-line',isoOn);
-  setVis('sgg-aging',agingOn);
-  setVis('sgg-bivar',bivOn);
-  setVis('sgg-line',agingOn||bivOn);
-  setVis('clickiso-fill',hereOn);setVis('clickiso-line',hereOn);
-  if(bivOn && !DATA.hasBivar){
-    toast('바이베리엇 데이터가 없습니다. ORS로 등시선 생성 후 combine_bivariate.py를 실행하세요.');
-  }
-  if(isoOn && !DATA.iso){
-    toast('등시선 데이터가 없습니다. fetch_isochrones.py(ORS 키)를 먼저 실행하세요.');
-  }
-  if(hereOn) toast('지도를 클릭하면 그 지점에서의 자동차 등시선을 그립니다');
+  const isoOn=view==='iso',agingOn=view==='aging',bivOn=view==='bivar';
+  setVis('iso-fill',isoOn);setVis('iso-line',isoOn);setVis('sgg-aging',agingOn);setVis('sgg-bivar',bivOn);
   renderLegend();
 }
-function applyHospToggle(){
-  const on=document.getElementById('toggle-hosp').checked;
-  setVis('hosp-pt',on);setVis('hosp-label',on);
+function applySggToggle(){const on=document.getElementById('toggle-sgg').checked;
+  setVis('sgg-line',on);setVis('sgg-label',on);setVis('sgg-hover',on);}
+function applyHospToggle(){const on=document.getElementById('toggle-hosp').checked;
+  setVis('hosp-pt',on);setVis('hosp-label',on);}
+function applyCoverage(){
+  if(map.getLayer('hospiso-fill')){const f=['==',['get','hosp_id'],selHosp==null?-1:selHosp];
+    map.setFilter('hospiso-fill',f);map.setFilter('hospiso-line',f);}
+  if(map.getLayer('hosp-sel'))map.setFilter('hosp-sel',['==',['get','id'],selHosp==null?-1:selHosp]);
+  const sel=document.getElementById('sim-sel');let h='';
+  if(selHosp!=null){const ft=(DATA.hosp.features||[]).find(x=>x.properties.id===selHosp);
+    h+=`<div><span class="dot" style="background:#3182bd"></span>선택 병원: <b>${ft?ft.properties.name:selHosp}</b></div>`;}
+  if(ptMarker)h+=`<div style="margin-top:3px"><span class="dot" style="background:#e6550d"></span>가상 병원(클릭 지점)</div>`;
+  sel.innerHTML=h; renderLegend();
 }
 
 /* ---------- 범례 ---------- */
 function renderLegend(){
-  const el=document.getElementById('legend');
-  if(view==='iso'){
-    el.innerHTML=`<h2>가장 가까운 상급종합병원까지 운전 시간</h2>
-      ${row(ISO_COLORS[15],'15분 이내')}${row(ISO_COLORS[30],'15–30분')}
-      ${row(ISO_COLORS[45],'30–45분')}${row(ISO_COLORS[60],'45–60분')}
-      ${row('#ffffff','60분 초과 · 의료 사각지대',true)}
-      <div class="note">도로망 OpenRouteService(OSM) · 보건복지부 제5기 명단</div>`;
-  }else if(view==='aging'){
-    el.innerHTML=`<h2>고령화지수 (65세↑ / 0–14세 ×100)</h2>
-      ${row(AGING[0],'~150 (낮음)')}${row(AGING[1],'150–250')}
-      ${row(AGING[2],'250–400')}${row(AGING[3],'400+ (높음)')}
-      <div class="note">시군구 단위 · KOSIS 주민등록 2025.12</div>`;
-  }else if(view==='here'){
-    el.innerHTML=`<h2>클릭 지점 기준 운전 등시선</h2>
-      ${row(ISO_COLORS[15],'15분 이내')}${row(ISO_COLORS[30],'15–30분')}
-      ${row(ISO_COLORS[45],'30–45분')}${row(ISO_COLORS[60],'45–60분')}
-      <button id="clickiso-clear" style="margin-top:9px;width:100%;border:1px solid var(--line);border-radius:6px;background:#fff;color:#111;font-family:inherit;font-size:12px;padding:6px;cursor:pointer">지우기</button>
-      <div class="note">지도를 클릭하면 그 지점 기준 자동차 등시선을 그립니다 · OpenRouteService(OSM)</div>`;
-    el.querySelector('#clickiso-clear').onclick=clearClickIso;
-  }else{
-    el.innerHTML=`<h2>접근성 × 고령화 (시군구)</h2>${bivarLegend()}
-      <div class="note">짙은 우상단 = 고령화 높고 병원 접근성 나쁜 <b>의료 취약지</b></div>`;
-  }
+  const el=document.getElementById('legend');let h='';
+  if(view==='iso'){h=`<h2>가장 가까운 상급종합병원까지 운전 시간</h2>
+    ${row(ISO_COLORS[15],'15분')}${row(ISO_COLORS[30],'30분')}${row(ISO_COLORS[45],'45분')}${row(ISO_COLORS[60],'60분')}
+    ${row('#fff','60분 초과 · 사각지대',true)}<div class="note">OpenRouteService(OSM) · 제5기 + 강원대</div>`;}
+  else if(view==='aging'){h=`<h2>고령화지수 (65세↑/0–14세 ×100)</h2>
+    ${row(AGING[0],'~150')}${row(AGING[1],'150–250')}${row(AGING[2],'250–400')}${row(AGING[3],'400+')}
+    <div class="note">시군구 · KOSIS 2025.12</div>`;}
+  else{h=`<h2>접근성 × 고령화 (시군구)</h2>${bivarLegend()}<div class="note">짙은 우상단 = <b>의료 취약지</b></div>`;}
+  if(selHosp!=null||ptMarker){h+=`<hr><h2 style="margin-bottom:6px">커버리지(분)</h2>
+    <div class="row"><span class="sw" style="background:#3182bd"></span>선택 병원 &nbsp;<span class="sw" style="background:#e6550d"></span>가상 병원</div>
+    <div class="note">진할수록 가까움(15→60분). 겹친 영역 = 두 병원 동시 커버</div>`;}
+  el.innerHTML=h;
 }
 function row(c,t,br){return `<div class="row"><span class="sw" style="background:${c};${br?'border:1px solid var(--line)':''}"></span>${t}</div>`;}
-function bivarLegend(){
-  let cells='';
-  // 행: 고령화 A3(위)→A1(아래), 열: 접근성 B1(좌)→B3(우)
-  const rows=[['yl','고령화→'],['A3'],['A2'],['A1']];
-  let html='<div class="bivar-grid">';
-  html+='<div></div><div class="axt">좋음</div><div class="axt"></div><div class="axt">나쁨</div>';
-  ['A3','A2','A1'].forEach(a=>{
-    html+= a==='A2'?'<div class="yl">고령화</div>':'<div></div>';
-    ['B1','B2','B3'].forEach(b=>{html+=`<div class="cell" style="background:${BIVAR[a+b]}"></div>`;});
-  });
-  html+='</div><div class="axt" style="text-align:center">← 병원 접근성 →</div>';
-  return html;
+function bivarLegend(){let html='<div class="bivar-grid"><div></div><div class="axt">좋음</div><div class="axt"></div><div class="axt">나쁨</div>';
+  ['A3','A2','A1'].forEach(a=>{html+=a==='A2'?'<div class="yl">고령화</div>':'<div></div>';
+    ['B1','B2','B3'].forEach(b=>{html+=`<div class="cell" style="background:${BIVAR[a+b]}"></div>`;});});
+  return html+'</div><div class="axt" style="text-align:center">← 병원 접근성 →</div>';}
+
+/* ---------- 인구 피라미드 ---------- */
+function renderPyramid(code){
+  const panel=document.getElementById('pyramid');
+  if(!document.getElementById('toggle-pyramid').checked||!PYR){panel.style.display='none';return;}
+  const reg=PYR.regions[code]; if(!reg){return;}
+  panel.style.display='block';
+  document.getElementById('py-title').textContent=reg.name;
+  if(!pyChart)pyChart=echarts.init(document.getElementById('py-chart'));
+  const bands=PYR.bands, male=reg.m.map(v=>-v), female=reg.f;
+  pyChart.setOption({grid:{left:46,right:10,top:6,bottom:16},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const i=p[0].dataIndex;
+      return `${bands[i]}세<br/>남 ${reg.m[i].toLocaleString()}<br/>여 ${reg.f[i].toLocaleString()}`;}},
+    xAxis:{type:'value',axisLabel:{formatter:v=>Math.abs(v)>=1000?Math.round(Math.abs(v)/1000)+'k':Math.abs(v),fontSize:8.5},splitLine:{lineStyle:{color:'#eef0f2'}}},
+    yAxis:{type:'category',data:bands,axisLabel:{fontSize:8},axisTick:{show:false},axisLine:{lineStyle:{color:'#d1d5db'}}},
+    series:[{name:'남',type:'bar',stack:'p',data:male,itemStyle:{color:'#3182bd'},barWidth:'82%'},
+      {name:'여',type:'bar',stack:'p',data:female,itemStyle:{color:'#e6550d'}}]});
 }
 
-/* ---------- 클릭형 등시선(ORS) ---------- */
-function clearClickIso(){
-  if(map.getSource('clickiso')) map.getSource('clickiso').setData({type:'FeatureCollection',features:[]});
-  if(clickMarker){clickMarker.remove();clickMarker=null;}
-}
-async function fetchClickIso(lng,lat){
-  if(!KEYS.ors){toast('config.js의 ors 키를 설정하세요');return;}
-  if(clickBusy) return; clickBusy=true;
-  toast('등시선을 불러오는 중…');
-  if(clickMarker) clickMarker.remove();
-  clickMarker=new maplibregl.Marker({color:'#111'}).setLngLat([lng,lat]).addTo(map);
+/* ---------- 클릭 등시선(가상 병원) ---------- */
+async function placePoint(lng,lat){
+  if(ptBusy)return; ptBusy=true; toast('가상 병원 등시선 계산 중…');
+  if(ptMarker)ptMarker.remove();
+  ptMarker=new maplibregl.Marker({color:'#e6550d'}).setLngLat([lng,lat]).addTo(map);
   try{
-    const r=await fetch('https://api.openrouteservice.org/v2/isochrones/driving-car',{
-      method:'POST',headers:{Authorization:KEYS.ors,'Content-Type':'application/json'},
-      body:JSON.stringify({locations:[[lng,lat]],range:[900,1800,2700,3600],range_type:'time'})});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    const direct=!!KEYS.ors;
+    const url=direct?'https://api.openrouteservice.org/v2/isochrones/driving-car':`/api/iso?lng=${lng}&lat=${lat}`;
+    const opt=direct?{method:'POST',headers:{Authorization:KEYS.ors,'Content-Type':'application/json'},
+      body:JSON.stringify({locations:[[lng,lat]],range:[900,1800,2700,3600],range_type:'time'})}:{};
+    const r=await fetch(url,opt); if(!r.ok)throw new Error('HTTP '+r.status);
     const gj=await r.json();
-    const feats=(gj.features||[]).slice()
-      .sort((a,b)=>(b.properties.value||0)-(a.properties.value||0)) // 큰 밴드 아래, 작은 밴드 위
+    const feats=(gj.features||[]).slice().sort((a,b)=>(b.properties.value||0)-(a.properties.value||0))
       .map(f=>({...f,properties:{...f.properties,minutes:(f.properties.value||0)/60}}));
-    map.getSource('clickiso').setData({type:'FeatureCollection',features:feats});
-    toast(feats.length?'클릭 지점 등시선 완료':'등시선 결과가 없습니다');
-  }catch(e){toast('ORS 호출 실패: '+e.message);}
-  finally{clickBusy=false;}
+    map.getSource('ptiso').setData({type:'FeatureCollection',features:feats});
+    toast(feats.length?'가상 병원 커버리지 표시':'결과 없음');
+  }catch(e){toast('등시선 호출 실패: '+e.message);if(ptMarker){ptMarker.remove();ptMarker=null;}}
+  finally{ptBusy=false;applyCoverage();}
 }
+function clearCoverage(){selHosp=null;
+  if(ptMarker){ptMarker.remove();ptMarker=null;}
+  if(map.getSource('ptiso'))map.getSource('ptiso').setData({type:'FeatureCollection',features:[]});
+  applyCoverage();}
 
 /* ---------- 인터랙션 ---------- */
 const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:10});
 function wireInteractions(){
-  map.on('click',e=>{ if(view==='here') fetchClickIso(e.lngLat.lng,e.lngLat.lat); });
-  map.on('mouseenter','hosp-pt',e=>{map.getCanvas().style.cursor='pointer';
-    const p=e.features[0].properties;
-    pop.setLngLat(e.features[0].geometry.coordinates)
-      .setHTML(`<div class="pop-name">${p.name}</div><div class="pop-meta">${p.region} · ${p.sido}</div>`).addTo(map);});
-  map.on('mouseleave','hosp-pt',()=>{map.getCanvas().style.cursor='';pop.remove();});
-
-  ['sgg-aging','sgg-bivar'].forEach(lid=>{
-    map.on('mousemove',lid,e=>{const p=e.features[0].properties;
-      let extra=`<div><span class="pop-k">고령화지수</span> <span class="pop-v">${p.aging_index??'-'}</span></div>`;
-      if(view==='bivar'){
-        if(p.access_min!=null) extra+=`<div><span class="pop-k">최근접 상급종합</span> <span class="pop-v">${p.access_min}분</span></div>`;
-        else if(p.access_label) extra+=`<div><span class="pop-k">접근성</span> <span class="pop-v">${p.access_label}</span></div>`;
-        extra+=`<div><span class="pop-k">관내 종합병원</span> <span class="pop-v">${p.hosp_gen_cnt??0}개</span></div>`;
-      }
-      pop.setLngLat(e.lngLat).setHTML(`<div class="pop-name">${(p.sido||'')} ${p.name}</div>${extra}`).addTo(map);});
-    map.on('mouseleave',lid,()=>pop.remove());
+  map.on('click',e=>{
+    const hits=map.queryRenderedFeatures(e.point,{layers:map.getLayer('hosp-pt')?['hosp-pt']:[]});
+    if(hits.length){const id=hits[0].properties.id; selHosp=(selHosp===id?null:id); applyCoverage();
+      toast(selHosp!=null?'선택 병원 커버리지 표시':'선택 해제');}
+    else placePoint(e.lngLat.lng,e.lngLat.lat);
   });
+  map.on('mouseenter','hosp-pt',e=>{map.getCanvas().style.cursor='pointer';const p=e.features[0].properties;
+    pop.setLngLat(e.features[0].geometry.coordinates).setHTML(`<div class="pop-name">${p.name}</div><div class="pop-meta">${p.region||''} · ${p.sido||''} · 클릭=커버리지</div>`).addTo(map);});
+  map.on('mouseleave','hosp-pt',()=>{map.getCanvas().style.cursor='';pop.remove();});
+  map.on('mousemove','sgg-hover',e=>{const p=e.features[0].properties;
+    let h=`<div class="pop-name">${(p.sido||'')} ${p.name||''}</div>`;
+    h+=`<div class="pop-row"><span class="pop-k">고령화지수</span> <span class="pop-v">${p.aging_index??'-'}</span></div>`;
+    h+=`<div class="pop-row"><span class="pop-k">최근접 상급종합</span> <span class="pop-v">${p.access_min==null?'-':p.access_min+'분'}</span></div>`;
+    h+=`<div class="pop-row"><span class="pop-k">관내 종합병원</span> <span class="pop-v">${p.hosp_gen_cnt??0}개</span></div>`;
+    pop.setLngLat(e.lngLat).setHTML(h).addTo(map);
+    if(p.code)renderPyramid(String(p.code));});
+  map.on('mouseleave','sgg-hover',()=>pop.remove());
 }
 
 /* ---------- 이벤트 ---------- */
-document.getElementById('view-seg').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b)return;
-  document.querySelectorAll('#view-seg button').forEach(x=>x.classList.toggle('on',x===b));
-  view=b.dataset.view; applyView();
-  map.getCanvas().style.cursor=view==='here'?'crosshair':'';
-});
-document.getElementById('basemap').addEventListener('change',e=>{
-  const id=e.target.value, st=basemapStyle(id);
-  if(!st){toast('VWorld 키가 없습니다. config.js에 vworld 키를 넣고 도메인을 등록하세요.');
-    e.target.value='carto-positron';return;}
-  clearClickIso();   // 배경지도 전환 시 클릭 등시선/마커 동반 초기화(불일치 방지)
-  map.setStyle(st);
-});
+document.getElementById('view-seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#view-seg button').forEach(x=>x.classList.toggle('on',x===b));view=b.dataset.view;applyView();});
+document.getElementById('basemap').addEventListener('change',e=>{const st=basemapStyle(e.target.value);
+  if(!st){toast('VWorld 키가 없습니다. config.js에 vworld 키를 넣고 도메인을 등록하세요.');e.target.value='carto-positron';return;}
+  map.setStyle(st);});
+document.getElementById('toggle-sgg').addEventListener('change',applySggToggle);
 document.getElementById('toggle-hosp').addEventListener('change',applyHospToggle);
-document.getElementById('opacity').addEventListener('input',e=>{
-  const o=+e.target.value/100;
-  ['iso-fill','sgg-aging','sgg-bivar','clickiso-fill'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});
-});
+document.getElementById('toggle-pyramid').addEventListener('change',e=>{if(!e.target.checked)document.getElementById('pyramid').style.display='none';});
+document.getElementById('opacity').addEventListener('input',e=>{const o=+e.target.value/100;
+  ['iso-fill','sgg-aging','sgg-bivar'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});});
+document.getElementById('sim-clear').addEventListener('click',clearCoverage);
 
 (async()=>{
-  await loadData();                       // 데이터 먼저 로드 → style.load 시 레이어 보장
+  await loadData();
   map=new maplibregl.Map({container:'map',style:basemapStyle('carto-positron'),
-    center:[127.8,36.3],zoom:6.4,minZoom:5,maxZoom:14});
+    center:[127.8,36.3],zoom:6.4,minZoom:5,maxZoom:14,
+    localIdeographFontFamily:"'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif"});
+  window.map=map;
   map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+  map.addControl(new maplibregl.FullscreenControl({container:document.getElementById('app')}),'bottom-right');
   map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:'metric'}),'bottom-right');
-  map.on('style.load',addAppLayers);      // 배경지도 전환 때마다 재구성
+  map.on('style.load',addAppLayers);
+  window.addEventListener('resize',()=>{if(pyChart)pyChart.resize();});
   wireInteractions();
   const n=DATA.hosp&&DATA.hosp.features?DATA.hosp.features.length:0;
-  if(n) document.getElementById('badge-hosp').textContent=`병원 ${n}개소 · 제5기+α`;
-  document.querySelector('.badge#badge-ctx').textContent =
-    (DATA.iso?'자동차 운전':'등시선 데이터 없음');
+  if(n)document.getElementById('badge-hosp').textContent=`병원 ${n}개소 · 제5기+α`;
 })();
 </script>
 </body>
