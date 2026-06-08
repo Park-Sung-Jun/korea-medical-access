@@ -309,12 +309,14 @@ function wireInteractions(){
   map.on('mouseenter','hosp-pt',e=>{map.getCanvas().style.cursor='pointer';const p=e.features[0].properties;
     pop.setLngLat(e.features[0].geometry.coordinates).setHTML(`<div class="pop-name">${p.name}</div><div class="pop-meta">${p.region||''} · ${p.sido||''} · 클릭=커버리지</div>`).addTo(map);});
   map.on('mouseleave','hosp-pt',()=>{map.getCanvas().style.cursor='';pop.remove();});
+  const pr=(k,v)=>`<div class="pop-row"><span class="pop-k">${k}</span> <span class="pop-v">${v}</span></div>`;
   map.on('mousemove','sgg-hover',e=>{const p=e.features[0].properties;
     let h=`<div class="pop-name">${(p.sido||'')} ${p.name||''}</div>`;
-    h+=`<div class="pop-row"><span class="pop-k">고령화지수</span> <span class="pop-v">${p.aging_index??'-'}</span></div>`;
-    h+=`<div class="pop-row"><span class="pop-k">고령인구(65+)</span> <span class="pop-v">${p.elderly_pop!=null?Number(p.elderly_pop).toLocaleString():'-'}명</span></div>`;
-    h+=`<div class="pop-row"><span class="pop-k">최근접 상급종합</span> <span class="pop-v">${p.access_min==null?'-':p.access_min+'분'}</span></div>`;
-    h+=`<div class="pop-row"><span class="pop-k">관내 종합병원</span> <span class="pop-v">${p.hosp_gen_cnt??0}개</span></div>`;
+    h+=pr('최근접 상급종합', p.access_min==null?'-':p.access_min+'분');
+    h+=pr('고령인구(65+)', p.elderly_pop!=null?Number(p.elderly_pop).toLocaleString()+'명':'-');
+    h+=pr('고령화지수', p.aging_index??'-');
+    h+=pr('관내 상급종합', (p.hosp_sup_cnt??0)+'개');
+    h+=pr('관내 종합병원', (p.hosp_gen_cnt??0)+'개');
     pop.setLngLat(e.lngLat).setHTML(h).addTo(map);
     if(p.code)renderPyramid(String(p.code));});
   map.on('mouseleave','sgg-hover',()=>pop.remove());
