@@ -12,7 +12,7 @@
     --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;overflow-anchor:none}
   body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
   a{color:inherit}
   .topbar{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;gap:18px;
@@ -21,6 +21,13 @@
   .topbar nav{display:flex;gap:16px;margin-left:auto}
   .topbar nav a{font-size:12.5px;color:var(--muted);text-decoration:none;transition:color .15s}
   .topbar nav a:hover{color:var(--ink)}
+  .topbar nav a.active{color:var(--ink);font-weight:700}
+  .anchor{margin-left:9px;text-decoration:none;font-weight:700;font-size:.78em;color:var(--line);
+    opacity:0;transition:opacity .15s,color .15s;vertical-align:middle}
+  h2:hover .anchor,.anchor:focus{opacity:1;color:var(--muted);outline:none}
+  .anchor:hover{color:var(--accent)}
+  .anchor.copied{opacity:1;color:var(--ok)}
+  .anchor.copied::after{content:" 링크 복사됨";font-size:.82em;font-weight:600;white-space:nowrap}
   .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
   .hero{padding:64px 0 28px}
   .hero h1{font-size:30px;font-weight:800;letter-spacing:-.6px;margin:0 0 12px;line-height:1.25}
@@ -388,12 +395,75 @@ function reveals(){
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 }
 
+// ===== 섹션 딥링크 (앵커 + 복사 + 스크롤스파이) =====
+function deepLinks(){
+  const deepUrl=id=>location.origin+location.pathname+'#'+id;
+  // 진입 해시 타겟을 스크롤스파이 setup보다 "먼저" 캡처한다 — 스파이의 replaceState가 해시를 덮어쓰기 때문.
+  const targetEl=location.hash?document.getElementById(location.hash.slice(1)):null;
+  // 각 섹션 제목에 클릭 시 링크 복사되는 # 앵커
+  document.querySelectorAll('section[id]').forEach(sec=>{
+    const h=sec.querySelector('h2'); if(!h) return;
+    const a=document.createElement('a');
+    a.className='anchor'; a.href='#'+sec.id; a.textContent='#';
+    a.setAttribute('aria-label','이 섹션 링크 복사');
+    a.addEventListener('click',ev=>{
+      ev.preventDefault();
+      const url=deepUrl(sec.id);
+      history.replaceState(null,'','#'+sec.id);
+      sec.scrollIntoView({behavior:'smooth'});
+      const done=()=>{a.classList.add('copied');setTimeout(()=>a.classList.remove('copied'),1300);};
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
+      else done();
+    });
+    h.appendChild(a);
+  });
+  // 스크롤스파이: 현재 섹션을 nav에 하이라이트 + URL 해시 동기화
+  const navLinks={};
+  document.querySelectorAll('.topbar nav a').forEach(a=>{
+    const id=(a.getAttribute('href')||'').replace('#','');
+    if(id) navLinks[id]=a;
+  });
+  const ids=Object.keys(navLinks).filter(id=>document.getElementById(id));
+  let activeId=null;
+  const setActive=id=>{
+    if(!id||id===activeId) return;
+    activeId=id;
+    Object.entries(navLinks).forEach(([k,a])=>a.classList.toggle('active',k===id));
+    if(location.hash.slice(1)!==id) history.replaceState(null,'','#'+id);
+  };
+  // 상단 기준선(스티키바 아래)을 지난 마지막 섹션 = 현재 섹션. 결정적이라 전환 경합이 없다.
+  const LINE=80;
+  const spy=()=>{
+    let cur=ids[0];
+    for(const id of ids){
+      if(document.getElementById(id).getBoundingClientRect().top-LINE<=1) cur=id;
+    }
+    setActive(cur);
+  };
+  let ticking=false;
+  window.addEventListener('scroll',()=>{
+    if(ticking) return; ticking=true;
+    requestAnimationFrame(()=>{spy();ticking=false;});
+  },{passive:true});
+  if(!targetEl) spy();   // 타겟이 있으면 초기 spy()가 해시를 #kpi로 덮어쓰지 않게 점프가 끝난 뒤 스크롤로 갱신
+  // 해시로 직접 진입한 경우: 비동기 차트/표 렌더로 페이지가 커지면 smooth 점프가 레이아웃 변동과 충돌해
+  // 튕긴다. instant로, 레이아웃이 안정될 때까지 여러 번 보정 점프한다.
+  if(targetEl){
+    const html=document.documentElement;
+    html.style.scrollBehavior='auto';            // 정착되는 동안 instant 유지
+    const jump=()=>targetEl.scrollIntoView();
+    requestAnimationFrame(()=>requestAnimationFrame(jump));
+    [250,700,1400].forEach(ms=>setTimeout(jump,ms));
+    setTimeout(()=>{html.style.scrollBehavior='';},1600); // 이후 nav용 smooth 복원
+  }
+}
+
 (async()=>{
   try{ S=await (await fetch('data/report_stats.json')).json(); }
   catch(e){ document.body.insertAdjacentHTML('afterbegin',
     '<div style="padding:20px;color:#dc2626">report_stats.json 로드 실패 — 로컬 서버로 여세요 (python -m http.server).</div>'); return; }
   kpiCards(); tripleTable(); supply(); elderlyView(); trafficView(); ohcaCorr();
-  bubbleChart(); splitCharts(); wireSeg(); reveals();
+  bubbleChart(); splitCharts(); wireSeg(); reveals(); deepLinks();
 })();
 </script>
 </body>
