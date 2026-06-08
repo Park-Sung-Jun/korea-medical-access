@@ -6,6 +6,7 @@ Vercel API 로 dist/ 정적 배포 (CLI 불필요).
 import os, json, time, hashlib
 from pathlib import Path
 import requests
+import _env  # noqa: .env -> os.environ 자동 로드
 
 TOKEN = os.environ["VERCEL_TOKEN"]
 TEAM = os.environ.get("VERCEL_TEAM", "").strip()

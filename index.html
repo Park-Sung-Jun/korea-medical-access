@@ -84,6 +84,7 @@
     <a href="#elderly">고령인구</a>
     <a href="#map">지도</a>
     <a href="#supply">의료공급</a>
+    <a href="#traffic">교통검증</a>
     <a href="#ohca">생존율 검증</a>
     <a href="#method">방법·한계</a>
   </nav>
@@ -157,6 +158,20 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+  </section>
+
+  <section id="traffic" class="reveal">
+    <h2>교통정체 교차검증 — 등시선은 ‘자유흐름’이라 낙관적</h2>
+    <p class="sub">ORS 등시선은 실시간 교통을 반영하지 않는다(OSM 자유흐름). 같은 경로(시군구→최근접 상급종합)를
+       TMAP(실시간 교통)으로 다시 재 비교했다. 도시일수록 ORS가 시간을 크게 과소추정 → 등시선이 넓게 나온다.</p>
+    <div class="corr" id="trafficStats"></div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">교통으로 가장 과소추정된 곳 (ORS→TMAP)</div>
+        <table id="worstTbl"><thead><tr><th>시도</th><th>시군구</th><th class="num">ORS→TMAP</th><th class="num">배수</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div><div class="note" id="trafficNote" style="margin-top:30px"></div></div>
     </div>
   </section>
 
@@ -280,6 +295,19 @@ function elderlyView(){
      군위군은 고령화지수 전국 최상위급이지만 고령인구는 1만여 명, 반대로 부천·송파는 고령인구 10만+이나 접근성은 좋다 —
      <b>지수(비율)와 규모(절대수)는 다른 이야기</b>다. 우선순위는 둘을 함께 봐야 한다.`;
 }
+function trafficView(){
+  const t=S.traffic; if(!t)return;
+  document.getElementById('trafficStats').innerHTML=`
+    <div class="c"><b style="color:var(--accent)">×${t.urban_median}</b><span>도시(광역시) 과소추정 배수</span></div>
+    <div class="c"><b>×${t.rural_median}</b><span>농촌(도) 과소추정 배수</span></div>
+    <div class="c"><b>×${t.median_ratio}</b><span>전체 중앙값(TMAP/ORS)</span></div>`;
+  document.querySelector('#worstTbl tbody').innerHTML=(t.worst||[]).map(r=>
+    `<tr><td>${r.sido||''}</td><td>${r.name}</td><td class="num">${fmt(r.ors_min)}→${fmt(r.tmap_min)}분</td><td class="num">×${r.ratio}</td></tr>`).join('');
+  document.getElementById('trafficNote').innerHTML=
+    `교통을 반영하면 <b>상급종합 60분 초과 시군구가 ${t.over60_ors}→${t.over60_tmap}개</b>로,
+     최취약(A3B3)이 <b>${t.a3b3_ors}→${t.a3b3_tmap}개</b>로 늘어난다. 도시 접근성이 특히 부풀려져 있었고,
+     지도에서 “교통반영” 토글로 재분류를 볼 수 있다. 단 실시간 교통은 호출 시각에 좌우되므로(러시아워 더 악화) 스냅샷 성격이다.`;
+}
 function ohcaCorr(){
   const o=S.ohca;
   document.getElementById('ohcaCorr').innerHTML=`
@@ -364,7 +392,7 @@ function reveals(){
   try{ S=await (await fetch('data/report_stats.json')).json(); }
   catch(e){ document.body.insertAdjacentHTML('afterbegin',
     '<div style="padding:20px;color:#dc2626">report_stats.json 로드 실패 — 로컬 서버로 여세요 (python -m http.server).</div>'); return; }
-  kpiCards(); tripleTable(); supply(); elderlyView(); ohcaCorr();
+  kpiCards(); tripleTable(); supply(); elderlyView(); trafficView(); ohcaCorr();
   bubbleChart(); splitCharts(); wireSeg(); reveals();
 })();
 </script>

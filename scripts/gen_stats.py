@@ -124,6 +124,27 @@ def main():
         } for s in sidos], key=lambda r: -r["deadzone_pct"]),
     }
 
+    # 교통 반영(TMAP) 교차검증 — geojson에 access_ratio 있을 때만
+    traffic = None
+    rats = sorted(num(p.get("access_ratio")) for p in F if num(p.get("access_ratio")))
+    if rats:
+        metro = lambda p: any((p.get("sido") or "").endswith(s) for s in ("특별시", "광역시", "특별자치시"))
+        urban = sorted(num(p["access_ratio"]) for p in F if num(p.get("access_ratio")) and metro(p))
+        rural = sorted(num(p["access_ratio"]) for p in F if num(p.get("access_ratio")) and not metro(p))
+        worst = sorted([p for p in F if num(p.get("access_ratio"))], key=lambda p: -num(p["access_ratio"]))[:6]
+        med = lambda a: round(a[len(a) // 2], 2) if a else None
+        traffic = {
+            "n": len(rats), "median_ratio": med(rats), "mean_ratio": round(sum(rats) / len(rats), 2),
+            "urban_median": med(urban), "rural_median": med(rural),
+            "over60_ors": sum(1 for p in F if num(p.get("access_min")) is not None and num(p["access_min"]) > 60),
+            "over60_tmap": sum(1 for p in F if num(p.get("access_min_tmap")) is not None and num(p["access_min_tmap"]) > 60),
+            "a3b3_ors": bivar.get("A3B3", 0),
+            "a3b3_tmap": sum(1 for p in F if p.get("bivar_class_tmap") == "A3B3"),
+            "worst": [{"sido": p.get("sido"), "name": p.get("name"),
+                       "ors_min": round(num(p.get("access_min_ors_exact")), 0) if num(p.get("access_min_ors_exact")) is not None else None,
+                       "tmap_min": round(num(p["access_min_tmap"]), 0), "ratio": round(num(p["access_ratio"]), 2)} for p in worst],
+        }
+
     stats = {
         "generated_note": "isochrone_map 통계 번들 (수치는 data/ 산출물 기준)",
         "kpi": {
@@ -155,6 +176,7 @@ def main():
         "triple_vulnerable": triple_rows,
         "farthest": far_rows,
         "elderly": elderly,
+        "traffic": traffic,
         "ohca": ohca,
     }
     out = DATA / "report_stats.json"

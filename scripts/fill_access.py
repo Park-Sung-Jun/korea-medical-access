@@ -17,6 +17,7 @@ import json, time
 from pathlib import Path
 import requests
 from shapely.geometry import shape
+import _env  # noqa: .env -> os.environ 자동 로드
 
 HERE = Path(__file__).resolve().parent
 DATA = HERE.parent / "data"

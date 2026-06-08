@@ -361,6 +361,61 @@
       }
     ]
   },
+  "traffic": {
+    "n": 250,
+    "median_ratio": 1.39,
+    "mean_ratio": 1.56,
+    "urban_median": 2.12,
+    "rural_median": 1.24,
+    "over60_ors": 34,
+    "over60_tmap": 72,
+    "a3b3_ors": 23,
+    "a3b3_tmap": 44,
+    "worst": [
+      {
+        "sido": "부산광역시",
+        "name": "서구",
+        "ors_min": 1.0,
+        "tmap_min": 5.0,
+        "ratio": 4.55
+      },
+      {
+        "sido": "대구광역시",
+        "name": "서구",
+        "ors_min": 6.0,
+        "tmap_min": 21.0,
+        "ratio": 3.62
+      },
+      {
+        "sido": "경기도",
+        "name": "안산시상록구",
+        "ors_min": 4.0,
+        "tmap_min": 11.0,
+        "ratio": 3.13
+      },
+      {
+        "sido": "서울특별시",
+        "name": "강서구",
+        "ors_min": 11.0,
+        "tmap_min": 33.0,
+        "ratio": 3.04
+      },
+      {
+        "sido": "부산광역시",
+        "name": "중구",
+        "ors_min": 3.0,
+        "tmap_min": 9.0,
+        "ratio": 3.04
+      },
+      {
+        "sido": "서울특별시",
+        "name": "용산구",
+        "ors_min": 8.0,
+        "tmap_min": 23.0,
+        "ratio": 3.03
+      }
+    ]
+  },
   "ohca": {
     "n": 17,
     "r_dead_surv": -0.116,

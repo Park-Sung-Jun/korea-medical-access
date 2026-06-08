@@ -9,6 +9,7 @@ import json, os, sys, time
 from pathlib import Path
 import requests
 from shapely.geometry import shape, mapping
+import _env  # noqa: .env -> os.environ 자동 로드
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent

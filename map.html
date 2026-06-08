@@ -100,6 +100,7 @@
         <label class="chk"><input type="checkbox" id="toggle-sgg" checked /> 시군구 경계·이름</label>
         <label class="chk"><input type="checkbox" id="toggle-hosp" checked /> 병원 위치 표시</label>
         <label class="chk"><input type="checkbox" id="toggle-pyramid" /> 인구 피라미드(시군구 호버)</label>
+        <label class="chk"><input type="checkbox" id="toggle-traffic" /> 교통반영 접근성(바이베리엇)</label>
         <div class="op"><span>채움 투명도</span><input type="range" id="opacity" min="20" max="95" value="60" /></div>
       </div>
     </div>
@@ -123,6 +124,7 @@ const BIVAR={A1B1:'#e8e8e8',A1B2:'#dfb0d6',A1B3:'#be64ac',A2B1:'#ace4e4',A2B2:'#
   A2B3:'#8c62aa',A3B1:'#5ac8c8',A3B2:'#5698b9',A3B3:'#3b4994'};
 const AGING=['#fff7ec','#fdd49e','#fc8d59','#d7301f'];
 const isoMatch=pal=>['match',['get','minutes'],15,pal[15],30,pal[30],45,pal[45],60,pal[60],'#ccc'];
+const bivarMatch=prop=>{const m=['match',['get',prop]];Object.entries(BIVAR).forEach(([k,v])=>m.push(k,v));m.push('#e8e8e8');return m;};
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';
   clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',4200);}
@@ -174,9 +176,9 @@ function addAppLayers(){
 
   if(DATA.sgg&&!map.getLayer('sgg-aging'))map.addLayer({id:'sgg-aging',type:'fill',source:'sgg',layout:{visibility:'none'},
     paint:{'fill-color':['step',['get','aging_index'],AGING[0],150,AGING[1],250,AGING[2],400,AGING[3]],'fill-opacity':op}},before);
-  if(DATA.sgg&&DATA.hasBivar&&!map.getLayer('sgg-bivar')){const m=['match',['get','bivar_class']];
-    Object.entries(BIVAR).forEach(([k,v])=>m.push(k,v));m.push('#e8e8e8');
-    map.addLayer({id:'sgg-bivar',type:'fill',source:'sgg',layout:{visibility:'none'},paint:{'fill-color':m,'fill-opacity':op}},before);}
+  if(DATA.sgg&&DATA.hasBivar&&!map.getLayer('sgg-bivar')){
+    const tp=document.getElementById('toggle-traffic').checked?'bivar_class_tmap':'bivar_class';
+    map.addLayer({id:'sgg-bivar',type:'fill',source:'sgg',layout:{visibility:'none'},paint:{'fill-color':bivarMatch(tp),'fill-opacity':op}},before);}
   if(DATA.iso&&!map.getLayer('iso-fill')){
     map.addLayer({id:'iso-fill',type:'fill',source:'iso',paint:{'fill-color':isoMatch(ISO_COLORS),'fill-opacity':op}},before);
     map.addLayer({id:'iso-line',type:'line',source:'iso',paint:{'line-color':'rgba(0,0,0,.16)','line-width':.4}},before);}
@@ -218,6 +220,12 @@ function applySggToggle(){const on=document.getElementById('toggle-sgg').checked
   setVis('sgg-line',on);setVis('sgg-label',on);setVis('sgg-hover',on);}
 function applyHospToggle(){const on=document.getElementById('toggle-hosp').checked;
   setVis('hosp-pt',on);setVis('hosp-label',on);}
+function applyTraffic(){
+  if(!map.getLayer('sgg-bivar'))return;
+  const t=document.getElementById('toggle-traffic').checked;
+  map.setPaintProperty('sgg-bivar','fill-color',bivarMatch(t?'bivar_class_tmap':'bivar_class'));
+  renderLegend();
+}
 function applyCoverage(){
   if(map.getLayer('hospiso-fill')){const f=['==',['get','hosp_id'],selHosp==null?-1:selHosp];
     map.setFilter('hospiso-fill',f);map.setFilter('hospiso-line',f);}
@@ -238,7 +246,9 @@ function renderLegend(){
   else if(view==='aging'){h=`<h2>고령화지수 (65세↑/0–14세 ×100)</h2>
     ${row(AGING[0],'~150')}${row(AGING[1],'150–250')}${row(AGING[2],'250–400')}${row(AGING[3],'400+')}
     <div class="note">시군구 · KOSIS 2025.12</div>`;}
-  else{h=`<h2>접근성 × 고령화 (시군구)</h2>${bivarLegend()}<div class="note">짙은 우상단 = <b>의료 취약지</b></div>`;}
+  else{const tf=document.getElementById('toggle-traffic')&&document.getElementById('toggle-traffic').checked;
+    h=`<h2>접근성 × 고령화 ${tf?'<span style="color:#dc2626">· 교통반영</span>':'· 자유흐름'}</h2>${bivarLegend()}
+      <div class="note">짙은 우상단 = <b>의료 취약지</b>${tf?' (교통 반영: 60분초과 34→72)':''}</div>`;}
   if(selHosp!=null||ptMarker){h+=`<hr><h2 style="margin-bottom:6px">커버리지(분)</h2>
     <div class="row"><span class="sw" style="background:#3182bd"></span>선택 병원 &nbsp;<span class="sw" style="background:#e6550d"></span>가상 병원</div>
     <div class="note">진할수록 가까움(15→60분). 겹친 영역 = 두 병원 동시 커버</div>`;}
@@ -312,7 +322,8 @@ function wireInteractions(){
   const pr=(k,v)=>`<div class="pop-row"><span class="pop-k">${k}</span> <span class="pop-v">${v}</span></div>`;
   map.on('mousemove','sgg-hover',e=>{const p=e.features[0].properties;
     let h=`<div class="pop-name">${(p.sido||'')} ${p.name||''}</div>`;
-    h+=pr('최근접 상급종합', p.access_min==null?'-':p.access_min+'분');
+    h+=pr('최근접 상급종합', p.access_min==null?'-':p.access_min+'분 <span style="color:#9ca3af">(자유흐름)</span>');
+    h+=pr('교통반영(TMAP)', p.access_min_tmap==null?'-':p.access_min_tmap+'분');
     h+=pr('고령인구(65+)', p.elderly_pop!=null?Number(p.elderly_pop).toLocaleString()+'명':'-');
     h+=pr('고령화지수', p.aging_index??'-');
     h+=pr('관내 상급종합', (p.hosp_sup_cnt??0)+'개');
@@ -332,6 +343,7 @@ document.getElementById('basemap').addEventListener('change',e=>{const st=basema
 });
 document.getElementById('toggle-sgg').addEventListener('change',applySggToggle);
 document.getElementById('toggle-hosp').addEventListener('change',applyHospToggle);
+document.getElementById('toggle-traffic').addEventListener('change',applyTraffic);
 document.getElementById('toggle-pyramid').addEventListener('change',e=>{if(!e.target.checked)document.getElementById('pyramid').style.display='none';});
 document.getElementById('opacity').addEventListener('input',e=>{const o=+e.target.value/100;
   ['iso-fill','sgg-aging','sgg-bivar'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});});

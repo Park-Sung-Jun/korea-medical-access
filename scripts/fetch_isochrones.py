@@ -23,6 +23,7 @@ from pathlib import Path
 import requests
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
+import _env  # noqa: .env -> os.environ 자동 로드
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
