@@ -81,6 +81,7 @@
   <nav>
     <a href="#kpi">핵심지표</a>
     <a href="#triple">삼중취약지</a>
+    <a href="#elderly">고령인구</a>
     <a href="#map">지도</a>
     <a href="#supply">의료공급</a>
     <a href="#ohca">생존율 검증</a>
@@ -108,10 +109,29 @@
         <th data-k="idx" class="num">#</th><th data-k="sido">시도</th><th data-k="name">시군구</th>
         <th data-k="access_min" class="num">최근접 상급종합(분)</th>
         <th data-k="aging_index" class="num">고령화지수</th>
+        <th data-k="elderly_pop" class="num">고령인구(65+)</th>
         <th data-k="hosp_gen_cnt" class="num">관내 종합병원</th>
       </tr></thead>
       <tbody></tbody>
     </table>
+  </section>
+
+  <section id="elderly" class="reveal">
+    <h2>고령화 ‘지수’가 아니라 ‘실제 고령인구’로</h2>
+    <p class="sub">고령화지수(65↑/0–14×100)가 아무리 높아도 인구가 적으면 영향 규모는 작다.
+       의료취약 우선순위는 “실제로 몇 명의 노인이 멀리 있는가”로 봐야 한다. (KOSIS 2025.12)</p>
+    <div class="corr" id="elderlyStats"></div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">지수는 최상위인데 고령인구는 적은 곳</div>
+        <table id="hiIdxTbl"><thead><tr><th>시도</th><th>시군구</th><th class="num">고령화지수</th><th class="num">고령인구</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">고령인구 절대수 최다(규모 큰 곳)</div>
+        <table id="mostEldTbl"><thead><tr><th>시도</th><th>시군구</th><th class="num">고령인구</th><th class="num">최근접(분)</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="note" id="elderlyNote"></div>
   </section>
 
   <section id="map" class="reveal">
@@ -218,6 +238,7 @@ function tripleTable(){
       <td>${r.name}${r.suspect?' <span class="pill">섬·과대</span>':''}</td>
       <td class="num">${fmt(r.access_min,1)}</td>
       <td class="num">${fmt(r.aging_index)}</td>
+      <td class="num">${fmt(r.elderly_pop)}명</td>
       <td class="num"><span class="pill bad">${r.hosp_gen_cnt}개</span></td></tr>`).join('');
   }
   render();
@@ -244,6 +265,21 @@ function supply(){
     <td class="num">${fmt(r.access_min,1)}</td></tr>`).join('');
 }
 
+function elderlyView(){
+  const e=S.elderly; if(!e)return;
+  document.getElementById('elderlyStats').innerHTML=`
+    <div class="c"><b style="color:var(--accent)">${fmt(e.deadzone_over60_elderly)}</b><span>60분 초과 사각지대 고령인구</span></div>
+    <div class="c"><b style="color:var(--accent)">${fmt(e.no_general_elderly)}</b><span>관내 종합병원 0개 고령인구</span></div>
+    <div class="c"><b>${fmt(e.triple_elderly)}</b><span>삼중취약지 고령인구</span></div>`;
+  document.querySelector('#hiIdxTbl tbody').innerHTML=(e.hi_index_examples||[]).map(r=>
+    `<tr><td>${r.sido||''}</td><td>${r.name}</td><td class="num">${fmt(r.aging_index)}</td><td class="num">${fmt(r.elderly_pop)}명</td></tr>`).join('');
+  document.querySelector('#mostEldTbl tbody').innerHTML=(e.most_elderly||[]).map(r=>
+    `<tr><td>${r.sido||''}</td><td>${r.name}</td><td class="num">${fmt(r.elderly_pop)}명</td><td class="num">${r.access_min==null?'-':fmt(r.access_min,1)}</td></tr>`).join('');
+  document.getElementById('elderlyNote').innerHTML=
+    `전국 고령인구 ${fmt(e.national_elderly)}명 중 <b>${fmt(e.deadzone_over60_elderly)}명</b>이 상급종합 60분 밖에 산다.
+     군위군은 고령화지수 전국 최상위급이지만 고령인구는 1만여 명, 반대로 부천·송파는 고령인구 10만+이나 접근성은 좋다 —
+     <b>지수(비율)와 규모(절대수)는 다른 이야기</b>다. 우선순위는 둘을 함께 봐야 한다.`;
+}
 function ohcaCorr(){
   const o=S.ohca;
   document.getElementById('ohcaCorr').innerHTML=`
@@ -328,7 +364,7 @@ function reveals(){
   try{ S=await (await fetch('data/report_stats.json')).json(); }
   catch(e){ document.body.insertAdjacentHTML('afterbegin',
     '<div style="padding:20px;color:#dc2626">report_stats.json 로드 실패 — 로컬 서버로 여세요 (python -m http.server).</div>'); return; }
-  kpiCards(); tripleTable(); supply(); ohcaCorr();
+  kpiCards(); tripleTable(); supply(); elderlyView(); ohcaCorr();
   bubbleChart(); splitCharts(); wireSeg(); reveals();
 })();
 </script>

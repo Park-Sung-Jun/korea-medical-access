@@ -15,7 +15,8 @@
     "gen_hosp_total": 337,
     "sup_hosp_total": 48,
     "sigungu_no_general": 82,
-    "triple_vulnerable": 15
+    "triple_vulnerable": 15,
+    "deadzone_elderly": 823088
   },
   "aging_tertiles": [
     214.4,
@@ -55,6 +56,7 @@
       "name": "옹진군",
       "access_min": 392.4,
       "aging_index": 776.0,
+      "elderly_pop": 7087,
       "hosp_gen_cnt": 0,
       "suspect": true
     },
@@ -63,6 +65,7 @@
       "name": "울릉군",
       "access_min": 295.3,
       "aging_index": 637.0,
+      "elderly_pop": 2796,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -71,6 +74,7 @@
       "name": "울진군",
       "access_min": 165.5,
       "aging_index": 429.0,
+      "elderly_pop": 15436,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -79,6 +83,7 @@
       "name": "영양군",
       "access_min": 112.7,
       "aging_index": 836.0,
+      "elderly_pop": 6850,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -87,6 +92,7 @@
       "name": "완도군",
       "access_min": 112.4,
       "aging_index": 488.0,
+      "elderly_pop": 17398,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -95,6 +101,7 @@
       "name": "진도군",
       "access_min": 110.2,
       "aging_index": 552.0,
+      "elderly_pop": 11082,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -103,6 +110,7 @@
       "name": "영덕군",
       "access_min": 108.9,
       "aging_index": 815.0,
+      "elderly_pop": 14718,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -111,6 +119,7 @@
       "name": "봉화군",
       "access_min": 106.0,
       "aging_index": 888.0,
+      "elderly_pop": 12844,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -119,6 +128,7 @@
       "name": "고성군",
       "access_min": 99.7,
       "aging_index": 484.0,
+      "elderly_pop": 9487,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -127,6 +137,7 @@
       "name": "신안군",
       "access_min": 97.5,
       "aging_index": 621.0,
+      "elderly_pop": 16146,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -135,6 +146,7 @@
       "name": "태안군",
       "access_min": 97.0,
       "aging_index": 632.0,
+      "elderly_pop": 23377,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -143,6 +155,7 @@
       "name": "연천군",
       "access_min": 93.6,
       "aging_index": 450.0,
+      "elderly_pop": 14293,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -151,6 +164,7 @@
       "name": "정선군",
       "access_min": 87.9,
       "aging_index": 627.0,
+      "elderly_pop": 12562,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -159,6 +173,7 @@
       "name": "청송군",
       "access_min": 86.4,
       "aging_index": 893.0,
+      "elderly_pop": 10588,
       "hosp_gen_cnt": 0,
       "suspect": false
     },
@@ -167,6 +182,7 @@
       "name": "구례군",
       "access_min": 76.5,
       "aging_index": 688.0,
+      "elderly_pop": 9828,
       "hosp_gen_cnt": 0,
       "suspect": false
     }
@@ -176,75 +192,175 @@
       "sido": "인천광역시",
       "name": "옹진군",
       "access_min": 392.4,
+      "elderly_pop": 7087,
       "suspect": true
     },
     {
       "sido": "제주특별자치도",
       "name": "제주시",
       "access_min": 341.6,
+      "elderly_pop": 89843,
       "suspect": true
     },
     {
       "sido": "제주특별자치도",
       "name": "서귀포시",
       "access_min": 326.9,
+      "elderly_pop": 43708,
       "suspect": true
     },
     {
       "sido": "경상북도",
       "name": "울릉군",
       "access_min": 295.3,
+      "elderly_pop": 2796,
       "suspect": false
     },
     {
       "sido": "경상북도",
       "name": "울진군",
       "access_min": 165.5,
+      "elderly_pop": 15436,
       "suspect": false
     },
     {
       "sido": "경상북도",
       "name": "영양군",
       "access_min": 112.7,
+      "elderly_pop": 6850,
       "suspect": false
     },
     {
       "sido": "전라남도",
       "name": "완도군",
       "access_min": 112.4,
+      "elderly_pop": 17398,
       "suspect": false
     },
     {
       "sido": "전라남도",
       "name": "진도군",
       "access_min": 110.2,
+      "elderly_pop": 11082,
       "suspect": false
     },
     {
       "sido": "경상북도",
       "name": "영덕군",
       "access_min": 108.9,
+      "elderly_pop": 14718,
       "suspect": false
     },
     {
       "sido": "강원도",
       "name": "태백시",
       "access_min": 108.0,
+      "elderly_pop": 12135,
       "suspect": false
     },
     {
       "sido": "경상북도",
       "name": "봉화군",
       "access_min": 106.0,
+      "elderly_pop": 12844,
       "suspect": false
     },
     {
       "sido": "강원도",
       "name": "고성군",
       "access_min": 99.7,
+      "elderly_pop": 9487,
       "suspect": false
     }
   ],
+  "elderly": {
+    "deadzone_over60_elderly": 823088,
+    "no_general_elderly": 1758394,
+    "triple_elderly": 184492,
+    "national_elderly": 10840822,
+    "hi_index_examples": [
+      {
+        "sido": "대구광역시",
+        "name": "군위군",
+        "aging_index": 1364.0,
+        "elderly_pop": 10992
+      },
+      {
+        "sido": "경상북도",
+        "name": "의성군",
+        "aging_index": 1095.0,
+        "elderly_pop": 23570
+      },
+      {
+        "sido": "경상남도",
+        "name": "합천군",
+        "aging_index": 1010.0,
+        "elderly_pop": 18573
+      },
+      {
+        "sido": "경상북도",
+        "name": "청도군",
+        "aging_index": 984.0,
+        "elderly_pop": 18650
+      },
+      {
+        "sido": "경상남도",
+        "name": "산청군",
+        "aging_index": 982.0,
+        "elderly_pop": 14674
+      },
+      {
+        "sido": "부산광역시",
+        "name": "중구",
+        "aging_index": 959.0,
+        "elderly_pop": 12471
+      }
+    ],
+    "most_elderly": [
+      {
+        "sido": "경기도",
+        "name": "부천시",
+        "elderly_pop": 155075,
+        "aging_index": 226.0,
+        "access_min": 15.0
+      },
+      {
+        "sido": "경기도",
+        "name": "남양주시",
+        "elderly_pop": 137932,
+        "aging_index": 161.0,
+        "access_min": 30.0
+      },
+      {
+        "sido": "서울특별시",
+        "name": "송파구",
+        "elderly_pop": 118935,
+        "aging_index": 175.0,
+        "access_min": 15.0
+      },
+      {
+        "sido": "경기도",
+        "name": "화성시",
+        "elderly_pop": 115180,
+        "aging_index": 76.0,
+        "access_min": 30.0
+      },
+      {
+        "sido": "서울특별시",
+        "name": "강서구",
+        "elderly_pop": 112966,
+        "aging_index": 244.0,
+        "access_min": 15.0
+      },
+      {
+        "sido": "대구광역시",
+        "name": "달서구",
+        "elderly_pop": 107067,
+        "aging_index": 209.0,
+        "access_min": 15.0
+      }
+    ]
+  },
   "ohca": {
     "n": 17,
     "r_dead_surv": -0.116,

@@ -63,6 +63,7 @@ def main():
         "sido": p.get("sido"), "name": p.get("name"),
         "access_min": round(num(p["access_min"]), 1),
         "aging_index": round(num(p.get("aging_index")), 0) if num(p.get("aging_index")) else None,
+        "elderly_pop": p.get("elderly_pop"),
         "hosp_gen_cnt": p.get("hosp_gen_cnt", 0),
         "suspect": bool(p.get("access_suspect")),
     } for p in triple_sorted]
@@ -72,7 +73,29 @@ def main():
                  key=lambda p: -num(p["access_min"]))[:12]
     far_rows = [{"sido": p.get("sido"), "name": p.get("name"),
                  "access_min": round(num(p["access_min"]), 1),
+                 "elderly_pop": p.get("elderly_pop"),
                  "suspect": bool(p.get("access_suspect"))} for p in far]
+
+    # 절대 고령인구 관점: 지수만으로는 안 보이는 '실제 영향 규모'
+    eld = lambda p: p.get("elderly_pop") or 0
+    deadzone_elderly = sum(eld(p) for p in over60)                       # 60분 초과 시군구의 65+ 합
+    nogen_elderly = sum(eld(p) for p in gen0)                            # 종합병원 0개 시군구의 65+ 합
+    triple_elderly = sum(eld(p) for p in triple)                        # 삼중취약 65+ 합
+    # 고령화지수 최상위지만 고령인구는 적은 사례(지수 vs 절대수 괴리)
+    hi_index = sorted([p for p in F if num(p.get("aging_index"))], key=lambda p: -num(p["aging_index"]))[:6]
+    # 고령인구 절대수 최다(실제 규모 큰 곳)
+    most_elderly = sorted(F, key=lambda p: -eld(p))[:6]
+    elderly = {
+        "deadzone_over60_elderly": deadzone_elderly,
+        "no_general_elderly": nogen_elderly,
+        "triple_elderly": triple_elderly,
+        "national_elderly": sum(eld(p) for p in F),
+        "hi_index_examples": [{"sido": p.get("sido"), "name": p.get("name"),
+                               "aging_index": round(num(p["aging_index"]), 0), "elderly_pop": eld(p)} for p in hi_index],
+        "most_elderly": [{"sido": p.get("sido"), "name": p.get("name"),
+                          "elderly_pop": eld(p), "aging_index": round(num(p.get("aging_index")), 0) if num(p.get("aging_index")) else None,
+                          "access_min": round(num(p["access_min"]), 1) if num(p.get("access_min")) is not None else None} for p in most_elderly],
+    }
 
     # OHCA 시도 검증
     acc = sido_access_metrics(BIV)
@@ -114,6 +137,7 @@ def main():
             "sup_hosp_total": sup_total,
             "sigungu_no_general": len(gen0),
             "triple_vulnerable": len(triple_rows),
+            "deadzone_elderly": deadzone_elderly,
         },
         "aging_tertiles": meta.get("aging_tertiles"),
         "bivar_dist": bivar,
@@ -130,6 +154,7 @@ def main():
         },
         "triple_vulnerable": triple_rows,
         "farthest": far_rows,
+        "elderly": elderly,
         "ohca": ohca,
     }
     out = DATA / "report_stats.json"

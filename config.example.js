@@ -1,12 +1,13 @@
-// 지도 API 키 설정 예시. 이 파일을 config.js 로 복사하고 키를 채우세요.
-// config.js 는 .gitignore 에 넣어 커밋하지 마세요.
-// VWorld/Kakao 키는 "도메인 등록형"이라 클라이언트 노출이 정상이지만,
-// 사용할 도메인(개발: http://localhost:8080)을 각 키 발급 콘솔에 등록해야 동작합니다.
+// 지도 키 설정. 이 파일을 config.js 로 복사해 사용.
+//  - VWorld/Kakao 키는 도메인 등록형이라 클라이언트 노출이 정상 → config.js 에 두고 커밋 가능.
+//    (VWorld 콘솔에서 사용 도메인(localhost, 배포도메인) 등록/제한 권장)
+//  - ORS 키는 도메인 제한이 안 되므로 config.js 에 두지 말 것:
+//      · 공개 배포: 서버리스 함수 api/iso.js + Vercel 환경변수 ORS_KEY 사용
+//      · 로컬 개발: config.local.js(.gitignore)에서 window.MAP_KEYS.ors 로 주입
 window.MAP_KEYS = {
-  // VWorld 인증키 (https://www.vworld.kr/dev/v4api.do). 등록 도메인에서만 동작.
-  vworld: "",
-  // (선택) Kakao JavaScript 키. 현재 지도는 MapLibre라 Kakao 타일은 미사용.
-  kakao: "",
-  // OpenRouteService 키 (클릭형 등시선용, 브라우저에서 직접 호출). 무료 발급: openrouteservice.org/dev
-  ors: "",
+  vworld: "",   // 예: 56A8CCC0-....  (VWorld WMTS, 도메인 등록형)
+  kakao: "",    // MapLibre에선 카카오 타일 미사용(좌표계/SDK 비호환)
+  ors: ""       // 비워둘 것(로컬은 config.local.js, 공개는 서버리스)
 };
+// 로컬 전용 config.local.js 예:
+//   if (window.MAP_KEYS) window.MAP_KEYS.ors = "<ORS 키>";

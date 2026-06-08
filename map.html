@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="config.js" onerror="window.MAP_KEYS=window.MAP_KEYS||{}"></script>
+<script src="config.local.js" onerror=""></script><!-- 로컬 전용 ORS 키 오버라이드(공개엔 없음) -->
 <style>
   :root{--bg:#fff;--ink:#111;--muted:#6b7280;--line:#e5e7eb;
     --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;}
@@ -90,7 +91,8 @@
           <option value="osm">상세 지도 (OpenStreetMap)</option>
           <option value="carto-dark">어두운 지도 (CARTO)</option>
           <option value="vworld-base">VWorld 일반</option>
-          <option value="vworld-gray">VWorld 회색</option>
+          <option value="vworld-white">VWorld 백지도</option>
+          <option value="vworld-midnight">VWorld 야간</option>
           <option value="vworld-satellite">VWorld 위성+라벨</option>
         </select>
       </div>
@@ -106,6 +108,8 @@
       <div class="pt" id="py-title">시군구</div>
       <div class="ps">연령·성별 인구 (KOSIS 2025.12) · <span style="color:#3182bd">■</span>남 <span style="color:#e6550d">■</span>여</div>
       <div id="py-chart"></div>
+      <a id="py-link" href="#" target="_blank" rel="noopener"
+        style="display:none;font-size:11px;color:#3182bd;text-decoration:none;margin-top:4px">🔗 pop-pyramid에서 자세히(읍면동·비교·유사지역) ↗</a>
     </div>
     <div class="toast" id="toast"></div>
   </div>
@@ -140,7 +144,8 @@ function basemapStyle(id){switch(id){
   case 'carto-dark':return CARTO('dark-matter-gl-style');
   case 'osm':return osmStyle();
   case 'vworld-base':return KEYS.vworld?vworldStyle('Base',false):null;
-  case 'vworld-gray':return KEYS.vworld?vworldStyle('gray',false):null;
+  case 'vworld-white':return KEYS.vworld?vworldStyle('white',false):null;
+  case 'vworld-midnight':return KEYS.vworld?vworldStyle('midnight',false):null;
   case 'vworld-satellite':return KEYS.vworld?vworldStyle('Satellite',true):null;
   default:return CARTO('positron-gl-style');}}
 
@@ -251,7 +256,12 @@ function renderPyramid(code){
   if(!document.getElementById('toggle-pyramid').checked||!PYR){panel.style.display='none';return;}
   const reg=PYR.regions[code]; if(!reg){return;}
   panel.style.display='block';
-  document.getElementById('py-title').textContent=reg.name;
+  const i65=PYR.bands.indexOf('65-69');
+  const eld=i65>=0?reg.m.slice(i65).reduce((a,b)=>a+b,0)+reg.f.slice(i65).reduce((a,b)=>a+b,0):null;
+  document.getElementById('py-title').textContent=reg.name+(eld!=null?` · 고령인구 ${eld.toLocaleString()}명`:'');
+  const link=document.getElementById('py-link');
+  if(reg.pcode){link.style.display='inline-block';link.href='https://park-sung-jun.github.io/pop-pyramid/?code='+encodeURIComponent(reg.pcode);}
+  else link.style.display='none';
   if(!pyChart)pyChart=echarts.init(document.getElementById('py-chart'));
   const bands=PYR.bands, male=reg.m.map(v=>-v), female=reg.f;
   pyChart.setOption({grid:{left:46,right:10,top:6,bottom:16},
@@ -302,6 +312,7 @@ function wireInteractions(){
   map.on('mousemove','sgg-hover',e=>{const p=e.features[0].properties;
     let h=`<div class="pop-name">${(p.sido||'')} ${p.name||''}</div>`;
     h+=`<div class="pop-row"><span class="pop-k">고령화지수</span> <span class="pop-v">${p.aging_index??'-'}</span></div>`;
+    h+=`<div class="pop-row"><span class="pop-k">고령인구(65+)</span> <span class="pop-v">${p.elderly_pop!=null?Number(p.elderly_pop).toLocaleString():'-'}명</span></div>`;
     h+=`<div class="pop-row"><span class="pop-k">최근접 상급종합</span> <span class="pop-v">${p.access_min==null?'-':p.access_min+'분'}</span></div>`;
     h+=`<div class="pop-row"><span class="pop-k">관내 종합병원</span> <span class="pop-v">${p.hosp_gen_cnt??0}개</span></div>`;
     pop.setLngLat(e.lngLat).setHTML(h).addTo(map);
@@ -314,7 +325,9 @@ document.getElementById('view-seg').addEventListener('click',e=>{const b=e.targe
   document.querySelectorAll('#view-seg button').forEach(x=>x.classList.toggle('on',x===b));view=b.dataset.view;applyView();});
 document.getElementById('basemap').addEventListener('change',e=>{const st=basemapStyle(e.target.value);
   if(!st){toast('VWorld 키가 없습니다. config.js에 vworld 키를 넣고 도메인을 등록하세요.');e.target.value='carto-positron';return;}
-  map.setStyle(st);});
+  map.setStyle(st);
+  map.once('idle',addAppLayers);   // 새 배경지도 로드 후 데이터 레이어 재구성(style.load 미발생 대비)
+});
 document.getElementById('toggle-sgg').addEventListener('change',applySggToggle);
 document.getElementById('toggle-hosp').addEventListener('change',applyHospToggle);
 document.getElementById('toggle-pyramid').addEventListener('change',e=>{if(!e.target.checked)document.getElementById('pyramid').style.display='none';});
