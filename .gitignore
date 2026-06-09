@@ -25,3 +25,4 @@ data/*.csv
 # 정적 사이트가 fetch 하는 데이터는 커밋:
 #   data/hospitals.geojson, data/isochrones.geojson,
 #   data/sigungu_bivariate.geojson, data/report_stats.json, data/hospitals.json
+.vercel
