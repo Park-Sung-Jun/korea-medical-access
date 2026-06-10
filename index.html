@@ -91,9 +91,13 @@
     <a href="#elderly">고령인구</a>
     <a href="#map">지도</a>
     <a href="#supply">의료공급</a>
+    <a href="#checkup">검진 수검률</a>
+    <a href="#health">질환부담</a>
     <a href="#traffic">교통검증</a>
     <a href="#ohca">생존율 검증</a>
     <a href="#method">방법·한계</a>
+    <a href="http://localhost:8081" target="_blank" rel="noopener"
+       style="color:var(--ink);font-weight:700">합성데이터 생성기 ↗</a>
   </nav>
 </div>
 
@@ -144,7 +148,7 @@
 
   <section id="map" class="reveal">
     <h2>인터랙티브 지도</h2>
-    <p class="sub">3개 뷰(접근성 등시선 · 접근성×고령화 · 고령화지수)에 더해 <b>커버리지 시뮬레이터</b>:
+    <p class="sub">4개 뷰(접근성 등시선 · 접근성×고령화 · 고령화지수 · <b>건강검진 수검률</b>)에 더해 <b>커버리지 시뮬레이터</b>:
        병원을 클릭하면 그 병원 등시선(파랑), 빈 곳을 클릭하면 가상 병원 등시선(주황)이 그려져 “여기 병원이 생기면”
        커버리지를 겹쳐 본다. 시군구에 마우스를 올리면 <b>인구 피라미드</b>가 연동되고, 전체화면도 지원한다.</p>
     <div class="mapframe"><iframe src="map.html" title="등시선 지도" loading="lazy"></iframe></div>
@@ -162,6 +166,44 @@
       <div>
         <table id="farTbl">
           <thead><tr><th>시도</th><th>시군구</th><th class="num">최근접 상급종합(분)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="checkup" class="reveal">
+    <h2>건강검진 수검률 — “접근성이 나빠 검진을 못 받는가?”</h2>
+    <p class="sub">국민건강보험 일반건강검진(2024) 시군구 수검률을 접근성과 교차검증했다.
+       만약 의료취약지 가설이 맞다면 <b>멀수록 덜 받아야</b> 한다 — 결과는 그렇게 단순하지 않다.</p>
+    <div class="corr" id="checkupCorr"></div>
+    <div class="grid2">
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">수검률 최저 시군구 — 접근성으로 설명 안 되는 곳들</div>
+        <table id="checkupLowTbl">
+          <thead><tr><th>시도</th><th>시군구</th><th class="num">수검률</th><th class="num">최근접(분)</th><th class="num">고령화</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div>
+        <div class="corr" id="checkupSplit" style="grid-template-columns:1fr 1fr"></div>
+        <div class="note" id="checkupNote" style="margin-top:14px"></div>
+      </div>
+    </div>
+    <div style="font-size:13px;font-weight:700;margin:22px 0 8px">저수검 시군구의 두 얼굴 — 같은 증상, 정반대 원인 (C. 유형화)</div>
+    <div class="grid2" id="checkupTypology"></div>
+  </section>
+
+  <section id="health" class="reveal">
+    <h2>검진 ‘결과’로 본 질환부담 — 늙은 곳에 병이 몰린다</h2>
+    <p class="sub">수검을 넘어 결과까지: 일반건강검진 <b>유질환자율</b>과 <b>대사증후군 위험군 비율</b>을 시군구로 지도화(2024).
+       지도의 <b>유질환자율 · 대사증후군</b> 뷰와 연동된다.</p>
+    <div class="corr" id="healthCorr"></div>
+    <div class="grid2" style="margin-top:6px">
+      <div class="note" id="healthNote"></div>
+      <div>
+        <table id="healthTbl">
+          <thead><tr><th>지표</th><th class="num">전국</th><th class="num">시군구 범위</th><th class="num">고령화 상관</th><th class="num">수검률 상관</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -327,6 +369,59 @@ function ohcaCorr(){
      시도(n=${o.n}) 해상도라 시군구 격차가 희석된다 — 접근성의 엄밀한 검증은 시군구 단위 생존율(질병관리청 급성심장정지조사)이 필요하다.`;
 }
 
+let C=null, H=null;
+function checkupView(){
+  if(!C)return;
+  const rAcc=C.corr['access_min(ORS)'].r, rAge=C.corr.aging_index.r, rEld=C.corr.elderly_share.r;
+  document.getElementById('checkupCorr').innerHTML=`
+    <div class="c"><b style="color:var(--accent)">${rAcc}</b><span>접근성 vs 수검률 (약함)</span></div>
+    <div class="c"><b>${rAge}</b><span>고령화지수 vs 수검률 (강함)</span></div>
+    <div class="c"><b>${C.national_rate}%</b><span>전국 수검률 (2024)</span></div>`;
+  document.getElementById('checkupSplit').innerHTML=`
+    <div class="c"><b>${C.deadzone_over60_mean_rate}%</b><span>접근 사각(&gt;60분) 평균 · n=${C.deadzone_n}</span></div>
+    <div class="c"><b>${C.near30_mean_rate}%</b><span>접근 양호(≤30분) 평균 · n=${C.near_n}</span></div>`;
+  document.querySelector('#checkupLowTbl tbody').innerHTML=(C.lowest12||[]).slice(0,9).map(r=>{
+    const urban=r.access_min!=null&&r.access_min<=30;   // 접근 좋은데 저수검 = 도시형 반례
+    return `<tr${urban?' style="background:#fef2f2"':''}><td>${r.sido||''}</td><td>${r.name}${urban?' <span style="color:#dc2626;font-size:11px">★도시형</span>':''}</td>`+
+      `<td class="num">${r.rate}%</td><td class="num">${fmt(r.access_min)}</td><td class="num">${fmt(r.aging_index)}</td></tr>`;}).join('');
+  document.getElementById('checkupNote').innerHTML=
+    `<b>거리 가설은 약하다.</b> 수검률은 접근성(r=${rAcc})보다 <b>고령화</b>(r=${rAge})·고령비율(r=${rEld})과 훨씬 강하게(역방향) 엮인다.
+     접근 사각지대조차 평균 ${C.deadzone_over60_mean_rate}%로 양호지역(${C.near30_mean_rate}%)과 ${(C.near30_mean_rate-C.deadzone_over60_mean_rate).toFixed(1)}%p 차이뿐.
+     <b>강남구</b>는 접근성 최상(15분)인데 수검률 하위권(★) — 거리·노령으로 설명 안 되는 <b>도시형 자발적 미수검</b>(직장인·민간검진).
+     정책함의: 도로 개선만으론 수검률이 거의 안 오른다 → <b>고령층 방문검진·인센티브</b>가 효과적, 도시 저수검은 별도 홍보·제도.`;
+  const ty=C.typology;
+  if(ty){const ex=a=>a.map(p=>`${p.name}(${p.rate}%·${fmt(p.access_min)}분)`).join(', ');
+    document.getElementById('checkupTypology').innerHTML=`
+      <div style="border:1px solid var(--line);border-radius:8px;padding:14px;background:#fef2f2">
+        <div style="font-weight:700;color:#b91c1c">도시형 자발적 미수검 · ${ty.urban_n}곳</div>
+        <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">평균 수검률 ${ty.urban_mean_rate}% · 평균 고령화 ${fmt(ty.urban_mean_aging)}(낮음) · 접근 양호(≤30분)인데 저수검</div>
+        <div style="font-size:12px">${ex(ty.urban_ex)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">→ 바쁜 직장인·민간검진 대체. <b>홍보·직장검진 연계·주말검진</b>이 지렛대.</div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:14px;background:#f8fafc">
+        <div style="font-weight:700">농촌형 구조적 미수검 · ${ty.rural_n}곳</div>
+        <div style="font-size:12px;color:var(--muted);margin:4px 0 8px">평균 수검률 ${ty.rural_mean_rate}% · 평균 고령화 ${fmt(ty.rural_mean_aging)}(높음) · 접근 불리/고령</div>
+        <div style="font-size:12px">${ex(ty.rural_ex)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">→ 거동 불편·교통 장벽. <b>방문검진·이동검진버스·교통지원</b>이 지렛대.</div>
+      </div>`;}
+}
+function healthView(){
+  if(!H||!H.indicators)return;
+  const d=H.indicators.disease_rate, m=H.indicators.metabolic_rate;
+  document.getElementById('healthCorr').innerHTML=`
+    <div class="c"><b style="color:var(--accent)">${d.corr.aging_index}</b><span>유질환자율 vs 고령화</span></div>
+    <div class="c"><b>${d.national_rate}%</b><span>전국 유질환자율</span></div>
+    <div class="c"><b>${m.national_rate}%</b><span>전국 대사증후군 위험군</span></div>`;
+  document.querySelector('#healthTbl tbody').innerHTML=[d,m].map(x=>
+    `<tr><td>${x.label.replace('(%)','')}</td><td class="num">${x.national_rate}%</td>`+
+    `<td class="num">${x.range[0]}~${x.range[1]}%</td><td class="num">${x.corr.aging_index}</td><td class="num">${x.corr.checkup_rate}</td></tr>`).join('');
+  document.getElementById('healthNote').innerHTML=
+    `유질환자율은 <b>고령화와 거의 결정적으로</b> 엮인다(r=${d.corr.aging_index}) — 늙은 시군구일수록 확진 질환자가 압도적으로 많다.
+     그런데 질환부담이 큰 곳일수록 <b>수검률은 낮다</b>(유질환 r=${d.corr.checkup_rate}, 대사증후군 r=${m.corr.checkup_rate}).
+     <b>가장 아픈 곳이 검진을 가장 덜 받는</b> ‘역돌봄(inverse care)’ 구조다. 접근성과도 양(+)의 상관(질환↑ where 접근↓) —
+     <b>고령·질환·저수검·접근불리가 같은 시군구에 겹친다.</b> 우선순위 자원배분의 근거다.`;
+}
+
 const AX={ axisLine:{lineStyle:{color:'#d1d5db'}}, axisLabel:{color:'#6b7280'},
   splitLine:{lineStyle:{color:'#eef0f2'}}, nameTextStyle:{color:'#6b7280'} };
 function regress(pts){ // pts:[[x,y]] -> [[xmin,a+b*xmin],[xmax,a+b*xmax]]
@@ -462,7 +557,9 @@ function deepLinks(){
   try{ S=await (await fetch('data/report_stats.json')).json(); }
   catch(e){ document.body.insertAdjacentHTML('afterbegin',
     '<div style="padding:20px;color:#dc2626">report_stats.json 로드 실패 — 로컬 서버로 여세요 (python -m http.server).</div>'); return; }
-  kpiCards(); tripleTable(); supply(); elderlyView(); trafficView(); ohcaCorr();
+  try{ C=await (await fetch('data/checkup_stats.json')).json(); }catch(e){ C=null; }
+  try{ H=await (await fetch('data/health_indicator_stats.json')).json(); }catch(e){ H=null; }
+  kpiCards(); tripleTable(); supply(); elderlyView(); checkupView(); healthView(); trafficView(); ohcaCorr();
   bubbleChart(); splitCharts(); wireSeg(); reveals(); deepLinks();
 })();
 </script>

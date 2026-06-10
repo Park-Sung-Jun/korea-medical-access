@@ -71,6 +71,9 @@
       <button data-view="iso" class="on">접근성 등시선</button>
       <button data-view="bivar">접근성×고령화</button>
       <button data-view="aging">고령화지수</button>
+      <button data-view="checkup">건강검진 수검률</button>
+      <button data-view="disease">유질환자율</button>
+      <button data-view="metabolic">대사증후군</button>
     </div>
     <span class="spacer"></span>
     <span class="badge" id="badge-hosp">병원 48개소 · 제5기+α</span>
@@ -123,6 +126,10 @@ const PTISO={15:'#a63603',30:'#e6550d',45:'#fd8d3c',60:'#fdd0a2'};     // 가상
 const BIVAR={A1B1:'#e8e8e8',A1B2:'#dfb0d6',A1B3:'#be64ac',A2B1:'#ace4e4',A2B2:'#a5add3',
   A2B3:'#8c62aa',A3B1:'#5ac8c8',A3B2:'#5698b9',A3B3:'#3b4994'};
 const AGING=['#fff7ec','#fdd49e','#fc8d59','#d7301f'];
+const CHECKUP={C1:'#b2182b',C2:'#f4a582',C3:'#2166ac'};   // 수검률(빨강=낮음·취약 → 파랑=높음)
+const SEVHI={C1:'#2166ac',C2:'#f4a582',C3:'#b2182b'};     // 질환부담(파랑=낮음 → 빨강=높음·취약)
+const checkupMatch=['match',['get','checkup_class'],'C1',CHECKUP.C1,'C2',CHECKUP.C2,'C3',CHECKUP.C3,'#e8e8e8'];
+const classMatch=(field,pal)=>['match',['get',field+'_class'],'C1',pal.C1,'C2',pal.C2,'C3',pal.C3,'#e8e8e8'];
 const isoMatch=pal=>['match',['get','minutes'],15,pal[15],30,pal[30],45,pal[45],60,pal[60],'#ccc'];
 const bivarMatch=prop=>{const m=['match',['get',prop]];Object.entries(BIVAR).forEach(([k,v])=>m.push(k,v));m.push('#e8e8e8');return m;};
 
@@ -179,6 +186,12 @@ function addAppLayers(){
   if(DATA.sgg&&DATA.hasBivar&&!map.getLayer('sgg-bivar')){
     const tp=document.getElementById('toggle-traffic').checked?'bivar_class_tmap':'bivar_class';
     map.addLayer({id:'sgg-bivar',type:'fill',source:'sgg',layout:{visibility:'none'},paint:{'fill-color':bivarMatch(tp),'fill-opacity':op}},before);}
+  if(DATA.sgg&&!map.getLayer('sgg-checkup'))map.addLayer({id:'sgg-checkup',type:'fill',source:'sgg',layout:{visibility:'none'},
+    paint:{'fill-color':checkupMatch,'fill-opacity':op}},before);
+  if(DATA.sgg&&!map.getLayer('sgg-disease'))map.addLayer({id:'sgg-disease',type:'fill',source:'sgg',layout:{visibility:'none'},
+    paint:{'fill-color':classMatch('disease_rate',SEVHI),'fill-opacity':op}},before);
+  if(DATA.sgg&&!map.getLayer('sgg-metabolic'))map.addLayer({id:'sgg-metabolic',type:'fill',source:'sgg',layout:{visibility:'none'},
+    paint:{'fill-color':classMatch('metabolic_rate',SEVHI),'fill-opacity':op}},before);
   if(DATA.iso&&!map.getLayer('iso-fill')){
     map.addLayer({id:'iso-fill',type:'fill',source:'iso',paint:{'fill-color':isoMatch(ISO_COLORS),'fill-opacity':op}},before);
     map.addLayer({id:'iso-line',type:'line',source:'iso',paint:{'line-color':'rgba(0,0,0,.16)','line-width':.4}},before);}
@@ -212,8 +225,9 @@ function addAppLayers(){
 function setVis(id,v){if(map.getLayer(id))map.setLayoutProperty(id,'visibility',v?'visible':'none');}
 
 function applyView(){
-  const isoOn=view==='iso',agingOn=view==='aging',bivOn=view==='bivar';
+  const isoOn=view==='iso',agingOn=view==='aging',bivOn=view==='bivar',chkOn=view==='checkup',disOn=view==='disease',metOn=view==='metabolic';
   setVis('iso-fill',isoOn);setVis('iso-line',isoOn);setVis('sgg-aging',agingOn);setVis('sgg-bivar',bivOn);
+  setVis('sgg-checkup',chkOn);setVis('sgg-disease',disOn);setVis('sgg-metabolic',metOn);
   renderLegend();
 }
 function applySggToggle(){const on=document.getElementById('toggle-sgg').checked;
@@ -246,6 +260,15 @@ function renderLegend(){
   else if(view==='aging'){h=`<h2>고령화지수 (65세↑/0–14세 ×100)</h2>
     ${row(AGING[0],'~150')}${row(AGING[1],'150–250')}${row(AGING[2],'250–400')}${row(AGING[3],'400+')}
     <div class="note">시군구 · KOSIS 2025.12</div>`;}
+  else if(view==='checkup'){h=`<h2>일반건강검진 수검률 (2024)</h2>
+    ${row(CHECKUP.C1,'하위 ⅓ · 낮음(취약)')}${row(CHECKUP.C2,'중간 ⅓')}${row(CHECKUP.C3,'상위 ⅓ · 높음')}
+    <div class="note">전국 75.6% · 시군구 66~83%<br/>접근성과 <b>약상관</b>(r −0.21), 고령화와 <b>강상관</b>(r −0.62)<br/>KOSIS 국민건강검진 · 성별 합계</div>`;}
+  else if(view==='disease'){h=`<h2>일반건강검진 유질환자율 (2024)</h2>
+    ${row(SEVHI.C3,'상위 ⅓ · 높음(취약)')}${row(SEVHI.C2,'중간 ⅓')}${row(SEVHI.C1,'하위 ⅓ · 낮음')}
+    <div class="note">전국 28.9% · 시군구 19~49%<br/>고령화와 <b>매우 강한 상관</b>(r +0.87), 수검률과 음상관(r −0.57)<br/>판정현황 유질환자/계 · KOSIS</div>`;}
+  else if(view==='metabolic'){h=`<h2>대사증후군 위험군 비율 (2024)</h2>
+    ${row(SEVHI.C3,'상위 ⅓ · 높음(취약)')}${row(SEVHI.C2,'중간 ⅓')}${row(SEVHI.C1,'하위 ⅓ · 낮음')}
+    <div class="note">전국 23.9% · 시군구 18~39%<br/>위험요인 3개↑ 보유율 · 고령화 r +0.76<br/>대사증후군(3~5개)/수검자수 · KOSIS</div>`;}
   else{const tf=document.getElementById('toggle-traffic')&&document.getElementById('toggle-traffic').checked;
     h=`<h2>접근성 × 고령화 ${tf?'<span style="color:#dc2626">· 교통반영</span>':'· 자유흐름'}</h2>${bivarLegend()}
       <div class="note">짙은 우상단 = <b>의료 취약지</b>${tf?' (교통 반영: 60분초과 34→72)':''}</div>`;}
@@ -335,6 +358,9 @@ function wireInteractions(){
     h+=pr('교통반영(TMAP)', p.access_min_tmap==null?'-':p.access_min_tmap+'분');
     h+=pr('고령인구(65+)', p.elderly_pop!=null?Number(p.elderly_pop).toLocaleString()+'명':'-');
     h+=pr('고령화지수', p.aging_index??'-');
+    h+=pr('건강검진 수검률', p.checkup_rate!=null?p.checkup_rate+'%'+(p.checkup_type?` <span style="color:#dc2626">·${p.checkup_type}</span>`:''):'-');
+    h+=pr('유질환자율', p.disease_rate!=null?p.disease_rate+'%':'-');
+    h+=pr('대사증후군 위험', p.metabolic_rate!=null?p.metabolic_rate+'%':'-');
     h+=pr('관내 상급종합', (p.hosp_sup_cnt??0)+'개');
     h+=pr('관내 종합병원', (p.hosp_gen_cnt??0)+'개');
     pop.setLngLat(e.lngLat).setHTML(h).addTo(map);
@@ -355,7 +381,7 @@ document.getElementById('toggle-hosp').addEventListener('change',applyHospToggle
 document.getElementById('toggle-traffic').addEventListener('change',applyTraffic);
 document.getElementById('toggle-pyramid').addEventListener('change',e=>{if(!e.target.checked)document.getElementById('pyramid').style.display='none';});
 document.getElementById('opacity').addEventListener('input',e=>{const o=+e.target.value/100;
-  ['iso-fill','sgg-aging','sgg-bivar'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});});
+  ['iso-fill','sgg-aging','sgg-bivar','sgg-checkup','sgg-disease','sgg-metabolic'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});});
 document.getElementById('sim-clear').addEventListener('click',clearCoverage);
 
 (async()=>{

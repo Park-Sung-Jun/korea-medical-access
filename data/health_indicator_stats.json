@@ -1,0 +1,47 @@
+{
+  "year": 2024,
+  "indicators": {
+    "disease_rate": {
+      "label": "유질환자율(%)",
+      "matched": 250,
+      "unmatched": [],
+      "national_rate": 28.9,
+      "range": [
+        19.0,
+        48.6
+      ],
+      "tertiles": {
+        "q1": 28.5,
+        "q2": 35.1,
+        "min": 19.0,
+        "max": 48.6
+      },
+      "corr": {
+        "access_min": 0.373,
+        "aging_index": 0.865,
+        "checkup_rate": -0.574
+      }
+    },
+    "metabolic_rate": {
+      "label": "대사증후군 위험군 비율(%)",
+      "matched": 250,
+      "unmatched": [],
+      "national_rate": 23.9,
+      "range": [
+        17.9,
+        39.0
+      ],
+      "tertiles": {
+        "q1": 23.6,
+        "q2": 27.9,
+        "min": 17.9,
+        "max": 39.0
+      },
+      "corr": {
+        "access_min": 0.41,
+        "aging_index": 0.755,
+        "checkup_rate": -0.526
+      }
+    }
+  }
+}
