@@ -1,0 +1,12 @@
+# 배포에 불필요한 대용량/원본 제외 (사이트는 data/*.geojson·*.json 만 fetch)
+node_modules
+.git
+scripts
+synthetic
+*.py
+_*.js
+_*.tsv
+# KOSIS 원본 CSV (0.9GB) — 런타임 미사용(통계는 *_stats.json 에 사전계산)
+data/*.csv
+data/_kosis_manifest.tsv
+data/synthetic_baseline.json
