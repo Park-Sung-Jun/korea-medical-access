@@ -103,6 +103,7 @@
     <a href="#kpi">핵심지표</a>
     <a href="#triple">삼중취약지</a>
     <a href="#priority">우선순위(VVI)</a>
+    <a href="#regional">시도롤업</a>
     <a href="#elderly">고령인구</a>
     <a href="#map">지도</a>
     <a href="#supply">의료공급</a>
@@ -175,6 +176,43 @@
       <tbody></tbody>
     </table>
     <p class="note" id="vviNote"></p>
+  </section>
+
+  <section id="regional" class="reveal">
+    <h2>시도별 롤업 — 17개 광역 비교</h2>
+    <p class="sub">시군구 지표를 시도 단위로 집계. 접근성(평균)·고령인구(합)·종합병원 0개 시군구 수·
+       검진/질환(인구가중 평균)으로 광역 간 격차를 한눈에 본다.</p>
+    <div class="vvi-toolbar"><span class="spacer" style="flex:1"></span>
+      <button type="button" class="btn-mini" id="sidoExport">CSV 내보내기</button></div>
+    <table id="sidoRollupTbl">
+      <thead><tr>
+        <th data-k="sido">시도</th><th data-k="n_sgg" class="num">시군구</th>
+        <th data-k="access_avg" class="num">평균 접근(분)</th>
+        <th data-k="over60" class="num">60분초과</th>
+        <th data-k="no_gen" class="num">종합병원0</th>
+        <th data-k="elderly_pop" class="num">고령인구</th>
+        <th data-k="checkup_w" class="num">검진수검률</th>
+        <th data-k="disease_w" class="num">유질환율</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="distribution" class="reveal">
+    <h2>검진 결과지표 분포 — 유질환율·대사증후군 이상치</h2>
+    <p class="sub">시군구별 유질환자율·대사증후군 위험률의 상·하위. 결과(질환부담) 지표가 어디에
+       집중되는지 본다. (접근성이 아니라 건강 ‘결과’ 측면)</p>
+    <div class="seg" id="distSeg" style="margin-bottom:10px">
+      <button data-m="disease_rate" class="on">유질환자율</button>
+      <button data-m="metabolic_rate">대사증후군</button>
+    </div>
+    <div class="grid2">
+      <div><div style="font-size:13px;font-weight:700;margin-bottom:8px">상위 10(높음)</div>
+        <table id="distHiTbl"><thead><tr><th>시도</th><th>시군구</th><th class="num">값</th><th class="num">고령인구</th></tr></thead><tbody></tbody></table></div>
+      <div><div style="font-size:13px;font-weight:700;margin-bottom:8px">하위 10(낮음)</div>
+        <table id="distLoTbl"><thead><tr><th>시도</th><th>시군구</th><th class="num">값</th><th class="num">고령인구</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <p class="note" id="distNote"></p>
   </section>
 
   <section id="elderly" class="reveal">
@@ -496,6 +534,71 @@ function vviView(){
   render();
 }
 
+// ---------- 시도별 롤업 ----------
+function sidoRollup(){
+  if(!SGG){const s=document.getElementById('regional');if(s)s.style.display='none';return;}
+  const by={};
+  SGG.forEach(p=>{const k=p.sido||'기타';const g=by[k]||(by[k]={sido:k,n_sgg:0,acc:0,accN:0,
+    over60:0,no_gen:0,elderly_pop:0,chkNum:0,disNum:0,wpop:0});
+    g.n_sgg++;
+    const a=p.access_min; if(a!=null){g.acc+=a;g.accN++; if(a>60)g.over60++;}
+    if((p.hosp_gen_cnt||0)===0)g.no_gen++;
+    g.elderly_pop+=(p.elderly_pop||0);
+    const w=p.pop_total||0; g.wpop+=w;
+    if(p.checkup_rate!=null)g.chkNum+=p.checkup_rate*w;
+    if(p.disease_rate!=null)g.disNum+=p.disease_rate*w;
+  });
+  let rows=Object.values(by).map(g=>({sido:g.sido,n_sgg:g.n_sgg,
+    access_avg:g.accN?g.acc/g.accN:null, over60:g.over60, no_gen:g.no_gen,
+    elderly_pop:g.elderly_pop,
+    checkup_w:g.wpop?g.chkNum/g.wpop:null, disease_w:g.wpop?g.disNum/g.wpop:null}));
+  rows.sort((a,b)=>b.elderly_pop-a.elderly_pop);
+  const tb=document.querySelector('#sidoRollupTbl tbody');
+  function render(){
+    tb.innerHTML=rows.map(r=>`<tr>
+      <td>${r.sido}</td><td class="num">${r.n_sgg}</td>
+      <td class="num">${fmt(r.access_avg,1)}</td>
+      <td class="num">${r.over60?`<span class="pill bad">${r.over60}</span>`:'0'}</td>
+      <td class="num">${r.no_gen?`<span class="pill">${r.no_gen}</span>`:'0'}</td>
+      <td class="num">${fmt(r.elderly_pop)}</td>
+      <td class="num">${fmt(r.checkup_w,1)}%</td>
+      <td class="num">${fmt(r.disease_w,1)}%</td></tr>`).join('');
+  }
+  render();
+  document.querySelectorAll('#sidoRollupTbl th').forEach(th=>{if(!th.dataset.k)return;th.onclick=()=>{
+    const k=th.dataset.k,asc=th._asc=!th._asc;
+    rows.sort((a,b)=>{const x=a[k],y=b[k];return (typeof x==='number'?x-y:String(x).localeCompare(y))*(asc?1:-1);});
+    render();};});
+  document.getElementById('sidoExport').onclick=()=>exportCsv(rows,
+    [{key:'sido',label:'시도'},{key:'n_sgg',label:'시군구수'},{key:'access_avg',label:'평균접근분'},
+     {key:'over60',label:'60분초과'},{key:'no_gen',label:'종합병원0'},{key:'elderly_pop',label:'고령인구'},
+     {key:'checkup_w',label:'검진수검률'},{key:'disease_w',label:'유질환율'}],'sido_rollup.csv');
+}
+
+// ---------- 결과지표 분포(상·하위) ----------
+function distView(){
+  if(!SGG){const s=document.getElementById('distribution');if(s)s.style.display='none';return;}
+  let metric='disease_rate';
+  const LABEL={disease_rate:'유질환자율',metabolic_rate:'대사증후군 위험률'};
+  function rowHtml(p){return `<tr><td>${p.sido}</td><td>${p.name}</td>
+    <td class="num">${fmt(p[metric],1)}%</td><td class="num">${fmt(p.elderly_pop)}</td></tr>`;}
+  function render(){
+    const arr=SGG.filter(p=>p[metric]!=null).slice().sort((a,b)=>b[metric]-a[metric]);
+    document.querySelector('#distHiTbl tbody').innerHTML=arr.slice(0,10).map(rowHtml).join('');
+    document.querySelector('#distLoTbl tbody').innerHTML=arr.slice(-10).reverse().map(rowHtml).join('');
+    const vals=arr.map(p=>p[metric]);
+    const mean=vals.reduce((s,v)=>s+v,0)/vals.length;
+    document.getElementById('distNote').innerHTML=
+      `${LABEL[metric]} — 전국 시군구 평균 <b>${mean.toFixed(1)}%</b>, 범위 ${vals[vals.length-1].toFixed(1)}~${vals[0].toFixed(1)}%.
+       결과지표는 접근성보다 고령화·생활습관과 더 연관됩니다(역돌봄 구조).`;
+  }
+  render();
+  document.querySelectorAll('#distSeg button').forEach(btn=>btn.onclick=()=>{
+    metric=btn.dataset.m;
+    document.querySelectorAll('#distSeg button').forEach(b=>b.classList.toggle('on',b===btn));
+    render();});
+}
+
 function supply(){
   const s=S.supply;
   document.getElementById('supplyStats').innerHTML=`
@@ -779,7 +882,7 @@ function deepLinks(){
   try{ E=await (await fetch('data/emergency_stats.json')).json(); }catch(e){ E=null; }
   try{ SGG=(await (await fetch('data/sigungu_bivariate.geojson')).json()).features.map(f=>f.properties); }catch(e){ SGG=null; }
   kpiCards(); tripleTable(); supply(); elderlyView(); checkupView(); healthView(); erView(); trafficView(); ohcaCorr();
-  bubbleChart(); splitCharts(); wireSeg(); reveals(); deepLinks(); vviView();
+  bubbleChart(); splitCharts(); wireSeg(); reveals(); deepLinks(); vviView(); sidoRollup(); distView();
 })();
 </script>
 </body>

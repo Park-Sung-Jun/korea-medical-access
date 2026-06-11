@@ -81,6 +81,16 @@
   .ctrl-btn:hover{background:#f8f9fa}
   .cov-stat{margin-top:6px;font-size:11.5px;color:#222;line-height:1.5}
   .cov-stat b{font-variant-numeric:tabular-nums}
+  .cmp{right:16px;top:120px;width:280px;padding:10px 12px}
+  .cmp-head{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px}
+  .cmp-head button{border:0;background:none;cursor:pointer;color:var(--muted);font-size:14px}
+  .cmp-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+  .cmp-tbl th,.cmp-tbl td{padding:3px 5px;text-align:right;border-bottom:1px solid var(--line)}
+  .cmp-tbl th{color:var(--muted);font-weight:600}
+  .cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left}
+  .cmp-k{color:#444}.cmp-hint{font-weight:400;color:#bbb;font-size:10px}
+  .cmp-good{color:#1a9850;font-weight:700}.cmp-bad{color:#dc2626}
+  @media(max-width:720px){.cmp{display:none}}
   @media(max-width:720px){
     .topbar{flex-wrap:wrap;height:auto;flex:0 0 auto;padding:8px 12px;gap:8px}
     .topbar h1{font-size:13px;flex-basis:100%}
@@ -145,9 +155,16 @@
           <button type="button" id="myloc" class="ctrl-btn" title="내 위치 기준 최근접 상급종합병원">📍 내 위치 최근접</button>
           <button type="button" id="exportCsv" class="ctrl-btn" title="현재 시군구 지표를 CSV로">⬇ CSV</button>
         </div>
+        <div class="op" style="margin-top:6px;color:var(--muted);font-size:11px">
+          <b>Shift+클릭</b>으로 두 시군구 비교</div>
       </div>
     </div>
     <div class="panel legend" id="legend"></div>
+    <div class="panel cmp" id="cmpPanel" hidden>
+      <div class="cmp-head"><b>두 지역 비교</b>
+        <button type="button" id="cmpClear" title="비교 초기화">✕</button></div>
+      <div id="cmpBody"></div>
+    </div>
     <div class="panel pyramid" id="pyramid">
       <div class="pt" id="py-title">시군구</div>
       <div class="ps">연령·성별 인구 (KOSIS 2025.12) · <span style="color:#3182bd">■</span>남 <span style="color:#e6550d">■</span>여</div>
@@ -459,6 +476,12 @@ function wireInteractions(){
   pyrPanel.addEventListener('mouseenter',cancelPyrHide);
   pyrPanel.addEventListener('mouseleave',hidePyramid);
   map.on('click',e=>{
+    // Shift+클릭 → 시군구 비교에 추가(기존 커버리지 클릭과 비충돌)
+    if(e.originalEvent&&e.originalEvent.shiftKey){
+      const sg=map.queryRenderedFeatures(e.point,{layers:map.getLayer('sgg-hover')?['sgg-hover']:[]});
+      if(sg.length)addCompare(sg[0].properties);
+      return;
+    }
     const hits=map.queryRenderedFeatures(e.point,{layers:map.getLayer('hosp-pt')?['hosp-pt']:[]});
     if(hits.length){const id=hits[0].properties.id;
       if(selHosps.has(id))selHosps.delete(id);else selHosps.add(id);
@@ -562,6 +585,44 @@ function wireSearch(){
   document.addEventListener('click',e=>{if(!e.target.closest('.search-box'))list.hidden=true;});
 }
 
+/* ---------- 두 지역 비교(Shift+클릭) ---------- */
+let cmpList=[];
+const CMP_ROWS=[
+  ['access_min','최근접 상급종합(분)',1,'low'],
+  ['access_min_tmap','교통반영(분)',1,'low'],
+  ['aging_index','고령화지수',0,'low'],
+  ['elderly_pop','고령인구(65+)',0,'low'],
+  ['hosp_gen_cnt','관내 종합병원',0,'high'],
+  ['checkup_rate','건강검진 수검률(%)',1,'high'],
+  ['cancer_rate','암검진 수검률(%)',1,'high'],
+  ['disease_rate','유질환자율(%)',1,'low'],
+  ['metabolic_rate','대사증후군(%)',1,'low'],
+  ['er_min','최근접 응급(분)',1,'low'],
+];
+function addCompare(p){
+  if(cmpList.find(x=>x.code===p.code)){toast('이미 비교 중입니다.');return;}
+  cmpList.push(p); if(cmpList.length>2)cmpList.shift();  // 최근 2개 유지
+  renderCompare();
+  toast(cmpList.length<2?'한 곳 더 Shift+클릭하면 비교됩니다':'두 지역 비교 표시');
+}
+function renderCompare(){
+  const panel=document.getElementById('cmpPanel'),body=document.getElementById('cmpBody');
+  if(!cmpList.length){panel.hidden=true;return;}
+  panel.hidden=false;
+  const A=cmpList[0],B=cmpList[1];
+  const num=(v,d)=>v==null?'-':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:d});
+  let h=`<table class="cmp-tbl"><tr><th></th><th>${A.name}</th>${B?`<th>${B.name}</th>`:'<th class="cmp-hint">Shift+클릭</th>'}</tr>`;
+  CMP_ROWS.forEach(([k,label,d,better])=>{
+    const a=A[k],b=B?B[k]:null;
+    let aw='',bw='';
+    if(B&&a!=null&&b!=null&&a!==b){const aBetter=(better==='high')?(a>b):(a<b);
+      aw=aBetter?'cmp-good':'cmp-bad';bw=aBetter?'cmp-bad':'cmp-good';}
+    h+=`<tr><td class="cmp-k">${label}</td><td class="${aw}">${num(a,d)}</td>${B?`<td class="${bw}">${num(b,d)}</td>`:'<td>-</td>'}</tr>`;
+  });
+  h+='</table>';
+  body.innerHTML=h;
+}
+
 /* ---------- 현재 뷰 CSV 내보내기 ---------- */
 function exportViewCsv(){
   if(!DATA.sgg)return;
@@ -618,6 +679,7 @@ function myNearestHospital(){
   wireSearch();
   document.getElementById('exportCsv').addEventListener('click',exportViewCsv);
   document.getElementById('myloc').addEventListener('click',myNearestHospital);
+  document.getElementById('cmpClear').addEventListener('click',()=>{cmpList=[];renderCompare();});
   // URL의 view를 토글 버튼에도 반영
   document.querySelectorAll('#view-seg button').forEach(x=>x.classList.toggle('on',x.dataset.view===view));
   const n=DATA.hosp&&DATA.hosp.features?DATA.hosp.features.length:0;
