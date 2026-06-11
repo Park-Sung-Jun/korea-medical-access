@@ -189,6 +189,14 @@ LATEST_YEAR = 2024
 MAX_ROWS = 500000      # 생성 상한(서버 SYNTH_MAX_N과 동기)
 SPEC_VERSION = 2       # 스펙 캐시 스키마 버전(시군구 데이터 포함)
 
+# 항목 간 상관강도(corr) 프리셋 — UI 공용
+CORR_PRESETS = [
+    {"key": "independent", "label": "독립(상관 없음)", "value": 0.0},
+    {"key": "weak", "label": "약한 상관", "value": 0.5},
+    {"key": "standard", "label": "표준(권장)", "value": 1.0},
+    {"key": "strong", "label": "강한 상관", "value": 1.3},
+]
+
 # 판정 등급 설명(국가건강검진 종합판정 기준) — UI·문서 공용
 GRADE_DESC = {
     "정상A": "건강이 양호한 상태",
@@ -200,15 +208,78 @@ GRADE_DESC = {
 
 # ---------------------------------------------------------------- CSV 파싱
 
+# build_spec가 설정하는 대상 연도(None=최신). _read_latest가 이 값으로 연도를 고른다.
+_BUILD_YEAR = None
+_AVAIL_YEARS = None  # available_years() 캐시
+
+
 def _read_latest(tid):
-    """KOSIS long-format CSV에서 최신연도 행만 반환."""
+    """KOSIS long-format CSV에서 대상연도(_BUILD_YEAR, None이면 최신) 행만 반환."""
     path = os.path.join(DATA_DIR, f"DT_35007_{tid}.csv")
     rows = []
     with open(path, encoding="utf-8-sig", newline="") as f:
         for r in csv.DictReader(f):
             rows.append(r)
-    latest = max(r.get("PRD_DE", "") for r in rows)
-    return [r for r in rows if r.get("PRD_DE") == latest], latest
+    years = sorted({r.get("PRD_DE", "") for r in rows if r.get("PRD_DE")})
+    if not years:
+        raise ValueError(f"{tid}: 연도 데이터 없음")
+    target = str(_BUILD_YEAR) if (_BUILD_YEAR and str(_BUILD_YEAR) in years) else years[-1]
+    return [r for r in rows if r.get("PRD_DE") == target], target
+
+
+# build_spec가 실제 소비하는 핵심 테이블(연도 교집합 산정용)
+_CORE_TABLES = ["N002_1", "N056", "N057", "N058", "N059", "N060", "N061", "N062",
+                "N063", "N064", "N065", "N066", "N067", "N068", "N069", "N070",
+                "N071", "N072", "N073", "N074", "N075", "N076", "N077", "N078",
+                "N079", "N080", "N081", "N082", "N083", "N084", "N085", "N086",
+                "N087", "N094", "N099", "N121", "N122", "N128", "N129", "N130"]
+
+
+def available_years():
+    """핵심 테이블이 모두 보유한 연도(교집합) — CSV 원본이 있을 때만 유효. 캐시."""
+    global _AVAIL_YEARS
+    if _AVAIL_YEARS is not None:
+        return _AVAIL_YEARS
+    common = None
+    for tid in _CORE_TABLES:
+        path = os.path.join(DATA_DIR, f"DT_35007_{tid}.csv")
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            ys = {r.get("PRD_DE", "") for r in csv.DictReader(f) if r.get("PRD_DE")}
+        common = ys if common is None else (common & ys)
+    _AVAIL_YEARS = sorted(int(y) for y in common) if common else []
+    return _AVAIL_YEARS
+
+
+def _spec_path(year=None):
+    """연도별 스펙 캐시 경로. year=None이면 기본(최신) 캐시."""
+    if year is None:
+        return SPEC_PATH
+    return os.path.join(DATA_DIR, f"synthetic_baseline_{int(year)}.json")
+
+
+def cached_years():
+    """디스크에 빌드된 스펙 캐시가 있는 연도 목록(서버 배포 환경용 — CSV 없이도 동작)."""
+    import glob
+    years = set()
+    for p in glob.glob(os.path.join(DATA_DIR, "synthetic_baseline_*.json")):
+        try:
+            with open(p, encoding="utf-8") as f:
+                y = json.load(f).get("year")
+            if isinstance(y, int):
+                years.add(y)
+        except (OSError, ValueError):
+            continue
+    if os.path.exists(SPEC_PATH):  # 기본 캐시(최신)
+        try:
+            with open(SPEC_PATH, encoding="utf-8") as f:
+                y = json.load(f).get("year")
+            if isinstance(y, int):
+                years.add(y)
+        except (OSError, ValueError):
+            pass
+    return sorted(years)
 
 
 def _val(r):
@@ -515,42 +586,76 @@ def _age_within(pyramid):
     return out
 
 
-def build_spec(verbose=True):
-    """KOSIS CSV 전체를 파싱해 생성기 스펙을 만들고 JSON 캐시로 저장."""
+def build_spec(verbose=True, year=None):
+    """KOSIS CSV 전체를 파싱해 (지정 연도) 생성기 스펙을 만들고 JSON 캐시로 저장.
+
+    year=None이면 보유 최신연도. 해당 연도 데이터가 없으면 ValueError."""
+    global _BUILD_YEAR
     t0 = time.time()
-    spec = {"year": LATEST_YEAR, "age_bands": AGE_BANDS, "sidos": SIDOS, "sexes": SEXES,
-            "dist": {}, "cat": {}}
-    for key, (age_tid, sido_tid, bins, _dec) in CONT_SPECS.items():
-        spec["dist"][key] = _parse_dist(key, [b[0] for b in bins], age_tid, sido_tid)
-    spec["cat"]["urine"] = _parse_dist("urine", URINE_CATS, "N065", "N064")
-    spec["cat"]["xray"] = _parse_dist("xray", XRAY_CATS, "N087", "N086")
-    vl, vr = _parse_vision()
-    spec["cat"]["vision_l"], spec["cat"]["vision_r"] = vl, vr
-    spec["grade"] = _parse_grade()
-    spec["bone"] = _parse_bone()
-    spec["height_mean"] = _parse_means("N130")
-    pyramid = _load_pyramid()
-    examinees = _parse_examinees()
-    sido_margin = _parse_sido_margin()
-    spec["demo_joint"] = _ipf_joint(pyramid, examinees, sido_margin)
-    spec["age_within"] = _age_within(pyramid)
-    spec["sigungu"] = _load_sigungu()
-    spec["spec_version"] = SPEC_VERSION
-    with open(SPEC_PATH, "w", encoding="utf-8") as f:
+    yrs = available_years()
+    if year is None:
+        target = yrs[-1] if yrs else LATEST_YEAR
+    else:
+        target = int(year)
+        if yrs and target not in yrs:
+            raise ValueError(f"{target}년 데이터가 없습니다. 가능: {yrs}")
+    _BUILD_YEAR = target
+    try:
+        spec = {"year": target, "age_bands": AGE_BANDS, "sidos": SIDOS, "sexes": SEXES,
+                "dist": {}, "cat": {}}
+        for key, (age_tid, sido_tid, bins, _dec) in CONT_SPECS.items():
+            spec["dist"][key] = _parse_dist(key, [b[0] for b in bins], age_tid, sido_tid)
+        spec["cat"]["urine"] = _parse_dist("urine", URINE_CATS, "N065", "N064")
+        spec["cat"]["xray"] = _parse_dist("xray", XRAY_CATS, "N087", "N086")
+        vl, vr = _parse_vision()
+        spec["cat"]["vision_l"], spec["cat"]["vision_r"] = vl, vr
+        spec["grade"] = _parse_grade()
+        spec["bone"] = _parse_bone()
+        spec["height_mean"] = _parse_means("N130")
+        pyramid = _load_pyramid()
+        examinees = _parse_examinees()
+        sido_margin = _parse_sido_margin()
+        spec["demo_joint"] = _ipf_joint(pyramid, examinees, sido_margin)
+        spec["age_within"] = _age_within(pyramid)
+        spec["sigungu"] = _load_sigungu()
+        spec["spec_version"] = SPEC_VERSION
+    finally:
+        _BUILD_YEAR = None
+    path = _spec_path(year)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(spec, f, ensure_ascii=False)
     if verbose:
-        print(f"[spec] 빌드 완료 {time.time() - t0:.1f}s -> {SPEC_PATH}")
+        print(f"[spec] 빌드 완료 {target}년 {time.time() - t0:.1f}s -> {path}")
     return spec
 
 
-def load_spec(rebuild=False):
-    if not rebuild and os.path.exists(SPEC_PATH):
-        with open(SPEC_PATH, encoding="utf-8") as f:
+def load_spec(rebuild=False, year=None):
+    """연도별 스펙 로드(캐시 우선). year=None이면 기본(최신) 캐시.
+
+    배포 환경처럼 CSV 원본이 없으면 빌드가 불가하므로, 캐시가 있으면 그대로 쓴다."""
+    path = _spec_path(year)
+    if not rebuild and os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
             spec = json.load(f)
-        if (spec.get("year") == LATEST_YEAR and spec.get("age_bands") == AGE_BANDS
-                and spec.get("spec_version") == SPEC_VERSION):
+        ok_year = (year is None) or (spec.get("year") == int(year))
+        if (spec.get("age_bands") == AGE_BANDS
+                and spec.get("spec_version") == SPEC_VERSION and ok_year):
             return spec
-    return build_spec()
+    return build_spec(year=year)
+
+
+def build_all_years(verbose=True):
+    """가용한 모든 연도의 스펙 캐시를 빌드(배포용 — 로컬 CSV 보유 시)."""
+    built = []
+    yrs = available_years()
+    if not yrs:
+        raise ValueError("KOSIS CSV 원본이 없어 연도 빌드 불가")
+    for y in yrs:
+        build_spec(verbose=verbose, year=y)
+        built.append(y)
+    # 최신연도는 기본 캐시(synthetic_baseline.json)로도 복제
+    build_spec(verbose=verbose, year=None)
+    return built
 
 
 # ---------------------------------------------------------------- 생성 코어
@@ -608,6 +713,43 @@ def _ckd_epi_2021(scr, age, male):
     if not male:
         egfr *= 1.012
     return egfr
+
+
+def _inv_ckd_epi_2021(egfr_target, age, male):
+    """CKD-EPI를 Cr에 대해 수치 역산(이분법). eGFR은 Cr에 단조감소라 안정적.
+    anchor='egfr' 모드에서 목표 eGFR 분위 → Cr 도출에 사용."""
+    lo, hi = 0.3, 12.0
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        if _ckd_epi_2021(mid, age, male) > egfr_target:
+            lo = mid  # Cr↑ → eGFR↓: 더 큰 Cr 필요
+        else:
+            hi = mid
+    return min(max((lo + hi) / 2.0, 0.4), 8.0)
+
+
+# 결측 주입 대상(검사 항목 row 키) — 인구학·판정·식별자·파생일관 키는 제외
+_MISSING_FIELDS = [
+    "waist", "sbp", "dbp", "fasting_glucose", "hemoglobin", "total_cholesterol",
+    "hdl", "ldl", "triglyceride", "creatinine", "egfr", "ast", "alt", "ggt",
+    "urine_protein", "chest_xray", "vision_left", "vision_right",
+]
+
+
+def _norm_missing(missing):
+    """결측 비율 정규화 → {field: rate} (0~0.9). 단일 숫자면 전 항목 동일 적용."""
+    if not missing:
+        return {}
+    if isinstance(missing, (int, float)):
+        rate = min(max(float(missing), 0.0), 0.9)
+        return {f: rate for f in _MISSING_FIELDS} if rate > 0 else {}
+    out = {}
+    for f, v in dict(missing).items():
+        if f in _MISSING_FIELDS:
+            rate = min(max(float(v), 0.0), 0.9)
+            if rate > 0:
+                out[f] = rate
+    return out
 
 
 def _icdf_binned(bins, probs, u, dec):
@@ -790,15 +932,29 @@ def _height_lookup(spec, sido, decade, sex):
     return 170.0 if sex == "남자" else 157.0
 
 
-def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
+def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None,
+             age_min=None, age_max=None, sex=None, missing=None, anchor="cr"):
     """합성 검진 레코드 n건 생성. 반환: (rows, meta)
 
     sigungu(코드 또는 이름)를 주면 인구학(연령·성·나이)은 해당 시군구 인구구조에
-    시도 수검률을 적용해 추출하고, 검사수치는 소속 시도 분포를 쓴다."""
+    시도 수검률을 적용해 추출하고, 검사수치는 소속 시도 분포를 쓴다.
+
+    age_min/age_max/sex: 코호트 필터(밴드 단위 절단). sex='남자'|'여자'.
+    missing: 결측 주입 비율(0~0.5 단일값 또는 {항목:비율} dict). MCAR 기본.
+    anchor: 'cr'(기본, Cr→eGFR 파생) | 'egfr'(eGFR을 N128 분포에 맞추고 Cr 역산)."""
     if not (100 <= n <= MAX_ROWS):
         raise ValueError(f"표본 수는 100~{MAX_ROWS:,} 범위여야 합니다")
     if sido != "전체" and sido not in SIDOS:
         raise ValueError(f"알 수 없는 시도: {sido}")
+    if sex is not None and sex not in SEXES:
+        raise ValueError(f"알 수 없는 성별: {sex}")
+    if anchor not in ("cr", "egfr"):
+        raise ValueError("anchor는 cr 또는 egfr여야 합니다")
+    sel_sexes = SEXES if sex is None else [sex]
+    sex_filter = sex  # 원본 필터 보존(아래 루프에서 sex가 행별로 덮어써짐)
+    lo_cut = int(age_min) if age_min not in (None, "") else None
+    hi_cut = int(age_max) if age_max not in (None, "") else None
+    miss = _norm_missing(missing)
     corr = float(corr)
     if math.isnan(corr) or math.isinf(corr):
         raise ValueError("상관강도(corr)는 유한한 수여야 합니다")
@@ -808,6 +964,7 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
     seed = int(seed)
     rng = random.Random(seed)
     t0 = time.time()
+    year_val = spec.get("year", LATEST_YEAR)
 
     sig_code, sig_reg, sig_ages = None, None, None
     if sigungu:
@@ -817,28 +974,40 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
         sido = sig_reg["sido"]
         sig_ages = _sigungu_age_within(sig_reg)
 
+    def _band_ok(band):
+        blo, bhi = BAND_AGE_RANGE[band]
+        if lo_cut is not None and bhi < lo_cut:
+            return False
+        if hi_cut is not None and blo > hi_cut:
+            return False
+        return True
+
     cells = _Cells(spec)
     joint = spec["demo_joint"]
     flat, wsum = [], 0.0
     if sig_reg is not None:
         _reg, wmap = _sigungu_demo(spec, sig_code)
-        for sex in SEXES:
+        for sx in sel_sexes:
             for band in AGE_BANDS:
-                w = wmap[(band, sex)]
+                if not _band_ok(band):
+                    continue
+                w = wmap[(band, sx)]
                 if w > 0:
-                    flat.append((sido, band, sex, w))
+                    flat.append((sido, band, sx, w))
                     wsum += w
     else:
         sel_sidos = SIDOS if sido == "전체" else [sido]
-        for sex in SEXES:
+        for sx in sel_sexes:
             for s in sel_sidos:
                 for band in AGE_BANDS:
-                    w = joint[sex][s][band]
+                    if not _band_ok(band):
+                        continue
+                    w = joint[sx][s][band]
                     if w > 0:
-                        flat.append((s, band, sex, w))
+                        flat.append((s, band, sx, w))
                         wsum += w
     if wsum <= 0:
-        raise ValueError("선택 지역의 수검 인구 가중치가 0입니다")
+        raise ValueError("선택 코호트(지역·연령·성별)의 수검 인구 가중치가 0입니다")
     cum, acc = [], 0.0
     for _s, _b, _x, w in flat:
         acc += w / wsum
@@ -861,6 +1030,10 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
         idx = bisect_right(cum, rng.random())
         s, band, sex, _w = flat[min(idx, len(flat) - 1)]
         age_src = sig_ages[sex][band] if sig_ages else spec["age_within"][s][sex][band]
+        if lo_cut is not None or hi_cut is not None:
+            age_src = [aw for aw in age_src
+                       if (lo_cut is None or aw[0] >= lo_cut)
+                       and (hi_cut is None or aw[0] <= hi_cut)] or age_src
         age = _pick_weighted(rng, age_src)
         decade = decade_of(age)
         z = _draw_latents(rng, model)
@@ -898,9 +1071,17 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
         alt = cont("alt", s, band, sex, z["alt"])
         ggt = cont("ggt", s, band, sex, z["ggt"])
 
-        # ⑤ 신장기능·혈색소 — eGFR는 Cr·연령·성별의 CKD-EPI 결정함수로 파생
-        cr = cont("cr", s, band, sex, z["cr"])
-        egfr = int(round(min(max(_ckd_epi_2021(cr, age, sex == "남자"), 5.0), 200.0)))
+        # ⑤ 신장기능·혈색소
+        # anchor='cr'(기본): Cr를 N078/79 분포로 매핑 → eGFR을 CKD-EPI로 파생(Cr 주변분포 정합).
+        # anchor='egfr': eGFR을 N128/129 분포로 매핑 → CKD-EPI 역산으로 Cr 도출(eGFR 주변분포 정합).
+        male = sex == "남자"
+        if anchor == "egfr":
+            egfr_t = cont("egfr", s, band, sex, z["cr"])
+            cr = round(_inv_ckd_epi_2021(egfr_t, age, male), 1)
+            egfr = int(round(min(max(_ckd_epi_2021(cr, age, male), 5.0), 200.0)))
+        else:
+            cr = cont("cr", s, band, sex, z["cr"])
+            egfr = int(round(min(max(_ckd_epi_2021(cr, age, male), 5.0), 200.0)))
         hgb = cont("hgb", s, band, sex, z["hgb"])
 
         # ⑥ 기타 검사
@@ -924,8 +1105,8 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
         if _PHI(z["dis"]) < p_dis:
             grade = "유질환자"
 
-        rows.append({
-            "synthetic_id": f"S{i + 1:06d}", "year": LATEST_YEAR, "sido": s,
+        row = {
+            "synthetic_id": f"S{i + 1:06d}", "year": year_val, "sido": s,
             "sigungu": sig_reg["short"] if sig_reg else "", "sex": sex,
             "age": age, "age_group": band, "age_decade": decade,
             "height": height, "weight": weight, "bmi": bmi, "waist": waist,
@@ -935,11 +1116,20 @@ def generate(spec, n, sido="전체", seed=None, corr=1.0, sigungu=None):
             "urine_protein": urine, "chest_xray": xray,
             "vision_left": vision_l, "vision_right": vision_r, "bone_density": bone,
             "result_grade": grade, "risk_group": flags,
-        })
+        }
+        # 결측 주입(MCAR) — 판정 후 측정 셀만 비움(값은 있었으나 미기록된 상황 모사).
+        # 판정·집계는 결측을 건너뛰도록 가드되어 있다(_b_status·matrix_c·verify).
+        if miss:
+            for f, rate in miss.items():
+                if rng.random() < rate:
+                    row[f] = None
+        rows.append(row)
 
-    meta = {"n": n, "sido": sido, "seed": seed, "corr": corr, "year": LATEST_YEAR,
+    meta = {"n": n, "sido": sido, "seed": seed, "corr": corr, "year": year_val,
             "sigungu": sig_reg["short"] if sig_reg else None,
             "sigungu_code": sig_code,
+            "age_min": lo_cut, "age_max": hi_cut, "sex_filter": sex_filter,
+            "anchor": anchor, "missing": miss or None,
             "elapsed_ms": int((time.time() - t0) * 1000),
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "columns": list(COLUMNS)}
@@ -1041,7 +1231,20 @@ B_ITEMS = [
 ]
 
 
+# B안 지표별 필요한 row 필드(하나라도 결측이면 그 지표는 집계 제외)
+_B_FIELDS_REQ = {
+    "bmi": ("bmi",), "waist": ("waist",), "bp": ("sbp", "dbp"),
+    "glu": ("fasting_glucose",), "tc": ("total_cholesterol",), "ldl": ("ldl",),
+    "hdl": ("hdl",), "tg": ("triglyceride",), "liver": ("ast", "alt", "ggt"),
+    "kidney": ("egfr", "creatinine"), "anemia": ("hemoglobin",), "urine": ("urine_protein",),
+}
+
+
 def _b_status(key, r):
+    # 결측(None)이 하나라도 있으면 None 반환 → 집계에서 제외
+    for f in _B_FIELDS_REQ.get(key, ()):
+        if r.get(f) is None:
+            return None
     male = r["sex"] == "남자"
     if key == "bmi":
         b = r["bmi"]
@@ -1092,16 +1295,20 @@ def _b_status(key, r):
 
 def summary_b(rows):
     out = []
-    n = len(rows)
     for key, label, crit in B_ITEMS:
         cnt = [0, 0, 0]
         for r in rows:
-            cnt[_b_status(key, r)] += 1
+            st = _b_status(key, r)
+            if st is not None:
+                cnt[st] += 1
+        valid = sum(cnt)
+        d = valid or 1  # 결측 제외 유효표본 기준 비율
         out.append({
             "key": key, "indicator": label, "criteria": crit,
-            "normal_pct": round(cnt[0] * 100.0 / n, 1),
-            "caution_pct": round(cnt[1] * 100.0 / n, 1),
-            "disease_pct": round(cnt[2] * 100.0 / n, 1),
+            "normal_pct": round(cnt[0] * 100.0 / d, 1),
+            "caution_pct": round(cnt[1] * 100.0 / d, 1),
+            "disease_pct": round(cnt[2] * 100.0 / d, 1),
+            "valid_n": valid,
         })
     return out
 
@@ -1110,17 +1317,27 @@ def matrix_c(rows):
     cells = {}
     for r in rows:
         k = (r["sido"], r["age_decade"])
-        c = cells.setdefault(k, {"n": 0, "ob": 0, "ht": 0, "dm": 0, "dl": 0})
+        c = cells.setdefault(k, {"n": 0, "ob": 0, "ht": 0, "dm": 0, "dl": 0,
+                                 "n_ob": 0, "n_ht": 0, "n_dm": 0, "n_dl": 0})
         c["n"] += 1
-        if r["bmi"] >= 25:
-            c["ob"] += 1
-        if r["sbp"] >= 140 or r["dbp"] >= 90:
-            c["ht"] += 1
-        if r["fasting_glucose"] >= 126:
-            c["dm"] += 1
-        if (r["total_cholesterol"] >= 240 or r["ldl"] >= 160 or r["hdl"] < 40
-                or r["triglyceride"] >= 200):
-            c["dl"] += 1
+        # 결측 항목은 분모(n_*)에서도 제외해 비율 왜곡 방지
+        if r["bmi"] is not None:
+            c["n_ob"] += 1
+            if r["bmi"] >= 25:
+                c["ob"] += 1
+        if r["sbp"] is not None and r["dbp"] is not None:
+            c["n_ht"] += 1
+            if r["sbp"] >= 140 or r["dbp"] >= 90:
+                c["ht"] += 1
+        if r["fasting_glucose"] is not None:
+            c["n_dm"] += 1
+            if r["fasting_glucose"] >= 126:
+                c["dm"] += 1
+        if None not in (r["total_cholesterol"], r["ldl"], r["hdl"], r["triglyceride"]):
+            c["n_dl"] += 1
+            if (r["total_cholesterol"] >= 240 or r["ldl"] >= 160 or r["hdl"] < 40
+                    or r["triglyceride"] >= 200):
+                c["dl"] += 1
     out = []
     sido_order = {s: i for i, s in enumerate(SIDOS)}
     dec_order = {d: i for i, d in enumerate(DECADES)}
@@ -1128,8 +1345,10 @@ def matrix_c(rows):
                             key=lambda kv: (sido_order.get(kv[0][0], 99),
                                             dec_order.get(kv[0][1], 99))):
         n = c["n"]
-        ob, ht, dm, dl = (c["ob"] * 100.0 / n, c["ht"] * 100.0 / n,
-                          c["dm"] * 100.0 / n, c["dl"] * 100.0 / n)
+        ob = c["ob"] * 100.0 / (c["n_ob"] or 1)
+        ht = c["ht"] * 100.0 / (c["n_ht"] or 1)
+        dm = c["dm"] * 100.0 / (c["n_dm"] or 1)
+        dl = c["dl"] * 100.0 / (c["n_dl"] or 1)
         score = ob * 0.2 + ht * 0.3 + dm * 0.3 + dl * 0.2
         level = "낮음" if score < 12 else ("보통" if score < 22 else "높음")
         out.append({"sido": s, "age_decade": d, "n": n,
@@ -1205,17 +1424,21 @@ def verify_report(spec, rows):
         return mix
 
     def make_row(key, label, bin_labels, table, nbins, counts, derived=False):
-        synth = [c / n for c in counts]
+        tot = sum(counts) or 1  # 결측 제외 유효표본 기준(분모)
+        synth = [c / tot for c in counts]
         kosis = internal(table, key, nbins)
         raw = raw_national(table, key, nbins)
         idiff = [abs(a - b) * 100 for a, b in zip(kosis, synth)]
         rdiff = [abs(a - b) * 100 for a, b in zip(raw, synth)]
+        # 기대 샘플링 오차(단순임의표집 가정 95% 반폭) — 관측 오차가 잡음 한계 이내인지 판단용
+        se = [1.96 * math.sqrt(max(p * (1 - p), 0.0) / tot) * 100 for p in synth]
         return {"key": key, "label": label, "bins": bin_labels, "derived": derived,
                 "kosis_pct": [round(v * 100, 2) for v in kosis],
                 "raw_kosis_pct": [round(v * 100, 2) for v in raw],
                 "synth_pct": [round(v * 100, 2) for v in synth],
                 "max_diff_pct": round(max(idiff), 2),
-                "raw_max_diff_pct": round(max(rdiff), 2)}
+                "raw_max_diff_pct": round(max(rdiff), 2),
+                "sampling_err_pct": round(max(se), 2), "valid_n": int(tot)}
 
     out = []
     for key in ("bmi", "waist", "sbp", "dbp", "glu", "hgb", "tc", "hdl", "tg",
@@ -1226,6 +1449,8 @@ def verify_report(spec, rows):
         field = ROW_FIELD[key]
         for r in rows:
             v = r[field]
+            if v is None:
+                continue
             for i, (_lab, lo, hi) in enumerate(bins):
                 if v < hi or i == len(bins) - 1:
                     cnt[i] += 1
@@ -1238,6 +1463,8 @@ def verify_report(spec, rows):
     for key, (field, cats) in cat_field.items():
         cnt = [0] * len(cats)
         for r in rows:
+            if r[field] is None:
+                continue
             cnt[cats.index(r[field])] += 1
         out.append(make_row(key, VERIFY_LABELS[key], list(cats), "cat", len(cats), cnt))
 
@@ -1379,8 +1606,11 @@ def fidelity_breakdown(spec, rows, min_cell=30):
         bs = (r["age_group"], r["sex"])
         ds = (r["sido"], r["sex"])
         for k in FIDELITY_KEYS:
+            v = r[ROW_FIELD[k]]
+            if v is None:  # 결측 제외
+                continue
             bins = binmap[k]
-            idx = _bin_index(r[ROW_FIELD[k]], bins)
+            idx = _bin_index(v, bins)
             a = acc_as[k].get(bs)
             if a is None:
                 a = acc_as[k][bs] = [0] * len(bins)
@@ -1445,11 +1675,13 @@ def sido_risk_compare(spec, rows, min_cell=30):
         return None
     by = {}
     for r in rows:
-        d = by.setdefault(r["sido"], {"n": 0, "ob": 0, "남자": 0, "여자": 0})
+        d = by.setdefault(r["sido"], {"n": 0, "ob": 0, "n_bmi": 0, "남자": 0, "여자": 0})
         d["n"] += 1
         d[r["sex"]] += 1
-        if r["bmi"] >= 25.0:
-            d["ob"] += 1
+        if r["bmi"] is not None:  # 결측 제외
+            d["n_bmi"] += 1
+            if r["bmi"] >= 25.0:
+                d["ob"] += 1
     bins_def = CONT_SPECS["bmi"][2]
     ob_idx = [i for i, (_l, lo, _h) in enumerate(bins_def) if lo >= 25.0]
     bins, kosis, synth, ns = [], [], [], []
@@ -1464,7 +1696,7 @@ def sido_risk_compare(spec, rows, min_cell=30):
             kp += w * sum(p[i] for i in ob_idx)
         bins.append(SIDO_SHORT[s])
         kosis.append(round(kp * 100, 2))
-        synth.append(round(d["ob"] * 100.0 / d["n"], 2))
+        synth.append(round(d["ob"] * 100.0 / (d["n_bmi"] or 1), 2))
         ns.append(d["n"])
     if len(bins) < 2:
         return None
@@ -1599,17 +1831,80 @@ def privacy_report(rows):
 
 # ---------------------------------------------------------------- CSV 직렬화
 
-def rows_to_csv(rows):
+def rows_to_csv(rows, columns=None):
+    """A안 CSV 직렬화. columns 지정 시 그 컬럼만(프로젝션, 항상 synthetic_id 포함)."""
+    fields = _project_cols(columns)
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
+    w = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n", extrasaction="ignore")
     w.writeheader()
     for r in rows:
-        rr = dict(r)
-        for k in ("vision_left", "vision_right"):
-            if rr[k] is None:
-                rr[k] = ""
+        rr = {k: ("" if r.get(k) is None else r.get(k)) for k in fields}
         w.writerow(rr)
     return buf.getvalue()
+
+
+def _project_cols(columns):
+    """요청 컬럼을 COLUMNS 화이트리스트로 교집합. 식별·인구학 핵심은 항상 포함."""
+    if not columns:
+        return list(COLUMNS)
+    req = [c.strip() for c in (columns.split(",") if isinstance(columns, str) else columns)]
+    keep = [c for c in COLUMNS if c in set(req)]
+    base = ["synthetic_id", "year", "sido", "sex", "age", "age_group"]
+    ordered = [c for c in COLUMNS if c in keep or c in base]
+    return ordered or list(COLUMNS)
+
+
+def rows_to_json_bytes(rows, columns=None):
+    """A안을 JSON 배열(UTF-8 bytes)로. columns 프로젝션 지원."""
+    fields = _project_cols(columns)
+    out = [{k: r.get(k) for k in fields} for r in rows]
+    return json.dumps(out, ensure_ascii=False).encode("utf-8")
+
+
+def build_datacard(meta, spec=None):
+    """생성 조건·출처·면책을 담은 데이터카드(재현·인용용). dict 반환."""
+    used_tables = sorted({t for v in CONT_SPECS.values() for t in v[:2]}
+                         | {"N064", "N065", "N086", "N087", "N094", "N099",
+                            "N121", "N122", "N130", "N132", "N002_1"})
+    return {
+        "title": "합성 건강검진 데이터 — 데이터카드(provenance)",
+        "generator_version": SPEC_VERSION,
+        "generated_at": meta.get("generated_at"),
+        "parameters": {
+            "n": meta.get("n"), "year": meta.get("year"), "seed": meta.get("seed"),
+            "corr": meta.get("corr"), "sido": meta.get("sido"),
+            "sigungu": meta.get("sigungu"), "sigungu_code": meta.get("sigungu_code"),
+            "age_min": meta.get("age_min"), "age_max": meta.get("age_max"),
+            "sex_filter": meta.get("sex_filter"), "anchor": meta.get("anchor"),
+            "missing": meta.get("missing"),
+        },
+        "reproduce": "동일 파라미터+동일 seed로 generate() 호출 시 완전히 동일한 데이터가 재현됩니다.",
+        "source": {
+            "provider": "KOSIS 국민건강보험공단 건강검진통계",
+            "year": meta.get("year"),
+            "tables": used_tables,
+            "license": "공공누리(KOGL) 출처표시 — KOSIS 이용약관 준수",
+        },
+        "columns": {c: COLUMN_LABELS_KO.get(c, c) for c in COLUMNS},
+        "disclaimer": ("KOSIS 집계 분포로부터 생성한 가상 개인 데이터입니다. 실존 인물과 "
+                       "무관하며 연구·개발·교육용으로만 사용하십시오. 실측 데이터가 아닙니다. "
+                       "LDL(Friedewald)·eGFR(CKD-EPI)는 임상 공식 파생값입니다."),
+    }
+
+
+# 컬럼 한글 라벨(데이터카드용 — 프론트 COLUMN_LABELS와 동기)
+COLUMN_LABELS_KO = {
+    "synthetic_id": "합성ID", "year": "연도", "sido": "시도", "sigungu": "시군구",
+    "sex": "성별", "age": "나이", "age_group": "연령구간(5세)", "age_decade": "연령대(10세)",
+    "height": "신장(cm)", "weight": "체중(kg)", "bmi": "체질량지수", "waist": "허리둘레(cm)",
+    "sbp": "수축기혈압", "dbp": "이완기혈압", "fasting_glucose": "공복혈당",
+    "hemoglobin": "혈색소", "total_cholesterol": "총콜레스테롤", "hdl": "HDL",
+    "ldl": "LDL(Friedewald 파생)", "triglyceride": "중성지방",
+    "creatinine": "크레아티닌", "egfr": "eGFR(CKD-EPI 파생)", "ast": "AST", "alt": "ALT",
+    "ggt": "γ-GTP", "urine_protein": "요단백", "chest_xray": "흉부방사선",
+    "vision_left": "시력(좌)", "vision_right": "시력(우)", "bone_density": "골밀도",
+    "result_grade": "종합판정", "risk_group": "위험군",
+}
 
 
 def dicts_to_csv(items, fields):
@@ -1635,11 +1930,19 @@ def main(argv=None):
     ap.add_argument("--sigungu", default=None, help="시군구 코드 또는 이름(예: 11110, 종로구)")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--corr", type=float, default=1.0)
+    ap.add_argument("--year", type=int, default=None, help="대상 연도(미지정=최신)")
     ap.add_argument("--rebuild-spec", action="store_true")
+    ap.add_argument("--build-all-years", action="store_true",
+                    help="가용 모든 연도 스펙 캐시 빌드(배포용) 후 종료")
     ap.add_argument("--out-dir", default=None, help="CSV 3종(A/B/C안) 저장 폴더")
     args = ap.parse_args(argv)
 
-    spec = load_spec(rebuild=args.rebuild_spec)
+    if args.build_all_years:
+        yrs = build_all_years()
+        print(f"[spec] 전체 연도 빌드 완료: {yrs}")
+        return 0
+
+    spec = load_spec(rebuild=args.rebuild_spec, year=args.year)
     rows, meta = generate(spec, args.n, sido=args.sido, seed=args.seed, corr=args.corr,
                           sigungu=args.sigungu)
     ver = verify_report(spec, rows)

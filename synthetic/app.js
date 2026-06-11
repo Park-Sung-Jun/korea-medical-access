@@ -94,10 +94,19 @@
     nCustom: $('nCustom'),
     sidoSelect: $('sidoSelect'),
     sigunguSelect: $('sigunguSelect'),
+    yearSelect: $('yearSelect'),
+    corrPreset: $('corrPreset'),
     corrRange: $('corrRange'),
     corrValue: $('corrValue'),
     seedInput: $('seedInput'),
     seedUsed: $('seedUsed'),
+    ageMin: $('ageMin'),
+    ageMax: $('ageMax'),
+    sexSelect: $('sexSelect'),
+    missingRange: $('missingRange'),
+    missingValue: $('missingValue'),
+    anchorSelect: $('anchorSelect'),
+    repInput: $('repInput'),
     errMetricSeg: $('errMetricSeg'),
     errTolSeg: $('errTolSeg'),
     errRuleNote: $('errRuleNote'),
@@ -191,12 +200,68 @@
           syncNOptions();
         }
         state.sigunguMap = json.sigungu_map || {};
+        fillYears(json.years || [json.default_year], json.default_year);
+        fillCorrPresets(json.corr_presets || []);
         fillSidos(Array.isArray(json.sidos) ? json.sidos : ['전체']);
         fillSigungu();
+        applyUrlParams();   // 리포트 딥링크(?sido=&sigungu=&year=) 사전선택
       })
       .catch(function (err) {
         showError('시도 목록을 불러오지 못했습니다: ' + err.message);
       });
+  }
+
+  function fillYears(years, def) {
+    if (!el.yearSelect) return;
+    while (el.yearSelect.firstChild) el.yearSelect.removeChild(el.yearSelect.firstChild);
+    years.forEach(function (y) {
+      var o = document.createElement('option');
+      o.value = String(y);
+      o.textContent = y + '년';
+      if (y === def) o.selected = true;
+      el.yearSelect.appendChild(o);
+    });
+  }
+
+  function fillCorrPresets(presets) {
+    if (!el.corrPreset) return;
+    while (el.corrPreset.firstChild) el.corrPreset.removeChild(el.corrPreset.firstChild);
+    var custom = document.createElement('option');
+    custom.value = ''; custom.textContent = '직접조절';
+    el.corrPreset.appendChild(custom);
+    presets.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = String(p.value);
+      o.textContent = p.label;
+      if (Number(p.value) === 1.0) o.selected = true;
+      el.corrPreset.appendChild(o);
+    });
+  }
+
+  // 리포트→생성기 딥링크: ?sido=경기도&sigungu=11110&year=2022 사전선택
+  function applyUrlParams() {
+    if (!window.URLSearchParams) return;
+    var q = new URLSearchParams(location.search);
+    var year = q.get('year');
+    if (year && el.yearSelect) {
+      for (var y = 0; y < el.yearSelect.options.length; y++) {
+        if (el.yearSelect.options[y].value === String(year)) el.yearSelect.value = String(year);
+      }
+    }
+    var sigungu = q.get('sigungu');
+    var sido = q.get('sido');
+    // 시군구 코드가 오면 소속 시도를 역조회해 먼저 시도 선택
+    if (sigungu) {
+      var foundSido = sido;
+      Object.keys(state.sigunguMap).forEach(function (sd) {
+        (state.sigunguMap[sd] || []).forEach(function (sg) {
+          if (sg.code === sigungu || sg.name === sigungu) foundSido = sd;
+        });
+      });
+      if (foundSido) { el.sidoSelect.value = foundSido; fillSigungu(); el.sigunguSelect.value = sigungu; }
+    } else if (sido) {
+      el.sidoSelect.value = sido; fillSigungu();
+    }
   }
 
   // 표본 수 드롭다운을 서버 상한(max_n)에 맞춤 — 상한 초과 정적 옵션 제거.
@@ -309,8 +374,19 @@
         sido: el.sidoSelect.value || '전체',
         sigungu: (el.sigunguSelect && el.sigunguSelect.value) || '',
         seed: readSeed(),
-        corr: parseFloat(el.corrRange.value)
+        corr: parseFloat(el.corrRange.value),
+        year: el.yearSelect && el.yearSelect.value ? parseInt(el.yearSelect.value, 10) : null,
+        age_min: el.ageMin && el.ageMin.value !== '' ? parseInt(el.ageMin.value, 10) : null,
+        age_max: el.ageMax && el.ageMax.value !== '' ? parseInt(el.ageMax.value, 10) : null,
+        sex: (el.sexSelect && el.sexSelect.value) || null,
+        anchor: (el.anchorSelect && el.anchorSelect.value) || 'cr',
+        missing: el.missingRange ? (parseInt(el.missingRange.value, 10) || 0) / 100 : 0,
+        replicates: el.repInput ? (parseInt(el.repInput.value, 10) || 1) : 1
       };
+      if (payload.age_min != null && payload.age_max != null
+          && payload.age_min > payload.age_max) {
+        throw new Error('연령 범위가 잘못되었습니다(최소 > 최대).');
+      }
     } catch (err) {
       showError(err.message);
       return;
@@ -1078,6 +1154,7 @@
       el.verifyNote.textContent =
         'KOSIS 원시: 발행된 전국 분포 대비(코호트 구성 차이 포함). '
         + '내부: 코호트를 통제한 분위수 매핑 충실도. '
+        + '"샘플링 한계"는 표본수 기준 기대 오차(95%)로, 관측 오차가 이 이내면 모델 편향이 아닌 잡음입니다. '
         + '파생 항목(LDL·eGFR)은 임상 공식으로 산출해 KOSIS 분포와 의도적으로 다를 수 있습니다.';
     }
 
@@ -1086,6 +1163,13 @@
       var derived = !!item.derived;
       var rawK = item.raw_kosis_pct || item.kosis_pct || [];
       var rawMax = item.raw_max_diff_pct != null ? item.raw_max_diff_pct : item.max_diff_pct;
+      var sampNote = item.sampling_err_pct != null
+        ? '샘플링 한계 ±' + fmt1(item.sampling_err_pct) + '%p (유효 ' + fmtInt(item.valid_n) + '행)'
+        : null;
+      var cap = derived
+        ? '파생값(임상 공식으로 산출) — KOSIS 분포와의 차이는 정상입니다.'
+        : null;
+      if (sampNote) cap = cap ? (cap + ' · ' + sampNote) : sampNote;
       el.verifyList.appendChild(buildVerifyCard({
         title: item.label || item.key || '',
         bins: item.bins || [],
@@ -1096,9 +1180,7 @@
         mainPrefix: 'KOSIS 원시',
         subDiff: derived ? null : pickDiff(item.max_diff_pct, item.kosis_pct, item.synth_pct),
         subPrefix: '내부',
-        caption: derived
-          ? '파생값(임상 공식으로 산출) — KOSIS 분포와의 차이는 정상입니다.'
-          : null
+        caption: cap
       }));
     });
 
@@ -1184,14 +1266,32 @@
 
     el.corrRange.addEventListener('input', function () {
       el.corrValue.textContent = parseFloat(el.corrRange.value).toFixed(2);
+      if (el.corrPreset) el.corrPreset.value = '';  // 수동 조절 시 프리셋 해제
     });
+    // corr 프리셋 → 슬라이더 동기
+    if (el.corrPreset) {
+      el.corrPreset.addEventListener('change', function () {
+        if (el.corrPreset.value === '') return;
+        el.corrRange.value = el.corrPreset.value;
+        el.corrValue.textContent = parseFloat(el.corrRange.value).toFixed(2);
+      });
+    }
+    // 결측 슬라이더 표시
+    if (el.missingRange) {
+      el.missingRange.addEventListener('input', function () {
+        el.missingValue.textContent = el.missingRange.value + '%';
+      });
+    }
 
     // 다운로드는 fetch+Blob — location.href 이동 방식은 서버 세션 소멸(재시작/LRU) 시
     // 대시보드가 404 JSON 페이지로 교체되는 문제가 있다.
     var DL_NAMES = {
       a: 'synthetic_health_a_individual.csv',
       b: 'synthetic_health_b_summary.csv',
-      c: 'synthetic_health_c_risk_matrix.csv'
+      c: 'synthetic_health_c_risk_matrix.csv',
+      json: 'synthetic_health_a_individual.json',
+      card: 'synthetic_health_datacard.json',
+      batch: 'synthetic_health_batch.zip'
     };
     var dlBtns = document.querySelectorAll('[data-dl]');
     for (var i = 0; i < dlBtns.length; i++) {

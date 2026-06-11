@@ -24,12 +24,16 @@ module.exports = async (req, res) => {
     return res.status(403).json({ error: 'origin not allowed' });
   }
 
-  const lng = parseFloat(req.query.lng);
-  const lat = parseFloat(req.query.lat);
+  let lng = parseFloat(req.query.lng);
+  let lat = parseFloat(req.query.lat);
   if (!isFinite(lng) || !isFinite(lat) ||
       lng < KR.minLng || lng > KR.maxLng || lat < KR.minLat || lat > KR.maxLat) {
     return res.status(400).json({ error: 'lng, lat 가 필요하며 한국 영역 안이어야 합니다.' });
   }
+  // 좌표를 소수 3자리(~110m 격자)로 양자화 — 인근 클릭의 CDN 캐시 적중률을 높여
+  // ORS 무료 쿼터 소모를 줄인다(표시·계산 모두 라운딩 좌표로 일관 사용).
+  lng = Math.round(lng * 1000) / 1000;
+  lat = Math.round(lat * 1000) / 1000;
   const key = process.env.ORS_KEY;
   if (!key) {
     return res.status(500).json({ error: 'ORS_KEY 환경변수가 설정되지 않았습니다.' });

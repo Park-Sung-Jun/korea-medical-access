@@ -307,5 +307,75 @@ class TestPrivacy(unittest.TestCase):
         self.assertTrue(rep["k_anonymity"][0]["qi"].startswith("시군구"))
 
 
+class TestCohortAndExports(unittest.TestCase):
+    def test_age_sex_filter(self):
+        rows, m = g.generate(SPEC, 1500, sex="여자", age_min=60, age_max=79, seed=1)
+        self.assertTrue(all(r["sex"] == "여자" for r in rows))
+        self.assertTrue(all(60 <= r["age"] <= 79 for r in rows))
+        self.assertEqual(m["sex_filter"], "여자")
+        self.assertEqual((m["age_min"], m["age_max"]), (60, 79))
+
+    def test_missing_injection_and_guards(self):
+        rows, m = g.generate(SPEC, 3000, missing=0.2, seed=2)
+        miss = sum(1 for r in rows if r["ggt"] is None)
+        self.assertGreater(miss, 0)
+        self.assertLess(miss, len(rows))
+        # 집계가 결측에 깨지지 않아야 함
+        b = g.summary_b(rows)
+        self.assertTrue(all("valid_n" in it for it in b))
+        c = g.matrix_c(rows)
+        self.assertTrue(all(0 <= cell["obesity_pct"] <= 100 for cell in c))
+        v = g.verify_report(SPEC, rows)
+        self.assertTrue(all(it.get("sampling_err_pct") is not None for it in v))
+        g.privacy_report(rows)
+        g.sido_risk_compare(SPEC, rows)
+
+    def test_anchor_egfr_marginal(self):
+        # anchor=egfr면 eGFR이 N128 분포에 더 가깝게(괴리 축소)
+        rows_cr, _ = g.generate(SPEC, 6000, seed=5, anchor="cr")
+        rows_eg, _ = g.generate(SPEC, 6000, seed=5, anchor="egfr")
+        v_cr = next(x for x in g.verify_report(SPEC, rows_cr) if x["key"] == "egfr")
+        v_eg = next(x for x in g.verify_report(SPEC, rows_eg) if x["key"] == "egfr")
+        self.assertLess(v_eg["raw_max_diff_pct"], v_cr["raw_max_diff_pct"])
+        # eGFR과 Cr는 여전히 CKD-EPI로 일관
+        for r in rows_eg[:200]:
+            exp = g._ckd_epi_2021(r["creatinine"], r["age"], r["sex"] == "남자")
+            if 5 <= exp <= 200:
+                self.assertLessEqual(abs(r["egfr"] - exp), 1.0)
+
+    def test_year_selection(self):
+        yrs = g.available_years()
+        self.assertIn(2024, yrs)
+        if 2022 in yrs:
+            sp = g.load_spec(year=2022)
+            self.assertEqual(sp["year"], 2022)
+            rows, m = g.generate(sp, 500, seed=1)
+            self.assertEqual(m["year"], 2022)
+            self.assertTrue(all(r["year"] == 2022 for r in rows))
+
+    def test_datacard(self):
+        rows, m = g.generate(SPEC, 500, seed=3)
+        card = g.build_datacard(m)
+        self.assertEqual(card["parameters"]["seed"], m["seed"])
+        self.assertEqual(card["parameters"]["year"], m["year"])
+        self.assertIn("disclaimer", card)
+        self.assertGreater(len(card["source"]["tables"]), 10)
+
+    def test_column_projection(self):
+        rows, _ = g.generate(SPEC, 300, seed=1)
+        csv_sub = g.rows_to_csv(rows, columns="age,sex,bmi,sbp")
+        header = csv_sub.splitlines()[0].split(",")
+        self.assertIn("bmi", header)
+        self.assertIn("synthetic_id", header)  # 핵심 식별자 항상 포함
+        self.assertNotIn("creatinine", header)
+
+    def test_json_export(self):
+        rows, _ = g.generate(SPEC, 100, seed=1)
+        import json as _j
+        arr = _j.loads(g.rows_to_json_bytes(rows).decode("utf-8"))
+        self.assertEqual(len(arr), 100)
+        self.assertIn("bmi", arr[0])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

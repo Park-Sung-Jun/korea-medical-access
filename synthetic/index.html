@@ -43,6 +43,11 @@
         </div>
 
         <div class="field">
+          <label for="yearSelect">기준 연도 <span class="hint">KOSIS 검진통계</span></label>
+          <select id="yearSelect"></select>
+        </div>
+
+        <div class="field">
           <label for="sidoSelect">시도</label>
           <select id="sidoSelect">
             <option value="전체">전체</option>
@@ -60,6 +65,7 @@
         <div class="field field--corr">
           <label for="corrRange">항목 간 상관강도 <span class="hint">0이면 독립, 1이 표준</span></label>
           <div class="field-row">
+            <select id="corrPreset" aria-label="상관강도 프리셋"></select>
             <input type="range" id="corrRange" min="0" max="1.5" step="0.05" value="1" />
             <output id="corrValue" for="corrRange">1.00</output>
           </div>
@@ -72,6 +78,50 @@
         </div>
       </div>
 
+      <!-- 고급 옵션(코호트·결측·앵커·배치) — 접기 -->
+      <details class="adv" id="advBox">
+        <summary>고급 옵션 — 코호트 필터 · 결측 주입 · 파생 앵커 · 배치</summary>
+        <div class="fields adv-fields">
+          <div class="field">
+            <label>연령 범위 <span class="hint">밴드 단위 절단</span></label>
+            <div class="field-row">
+              <input type="number" id="ageMin" min="0" max="104" step="1" placeholder="최소" aria-label="연령 최소" />
+              <span class="dash">–</span>
+              <input type="number" id="ageMax" min="0" max="104" step="1" placeholder="최대" aria-label="연령 최대" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="sexSelect">성별</label>
+            <select id="sexSelect">
+              <option value="">전체</option>
+              <option value="남자">남자</option>
+              <option value="여자">여자</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="missingRange">결측 주입 <span class="hint">검사항목 무작위 결측(MCAR)</span></label>
+            <div class="field-row">
+              <input type="range" id="missingRange" min="0" max="50" step="1" value="0" />
+              <output id="missingValue" for="missingRange">0%</output>
+            </div>
+          </div>
+          <div class="field">
+            <label for="anchorSelect">파생 정합 기준
+              <span class="hint">신장기능 주변분포</span></label>
+            <select id="anchorSelect"
+                    title="cr: 크레아티닌 분포에 맞추고 eGFR 파생(기본) / egfr: eGFR 분포에 맞추고 Cr 역산">
+              <option value="cr">크레아티닌 기준(기본)</option>
+              <option value="egfr">eGFR 기준(N128 정합)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="repInput">배치 반복 <span class="hint">시드+1,2… ZIP</span></label>
+            <input type="number" id="repInput" min="1" max="50" step="1" value="1"
+                   title="여러 개의 복제본을 같은 조건·다른 시드로 생성해 ZIP으로 받습니다(몬테카를로/replicate 연구용)." />
+          </div>
+        </div>
+      </details>
+
       <div class="actions">
         <button type="submit" id="genBtn" class="btn btn--primary">
           <span class="spinner" id="genSpinner" hidden></span>
@@ -79,8 +129,13 @@
         </button>
         <span class="actions-divider" aria-hidden="true"></span>
         <button type="button" class="btn btn--dl" data-dl="a" disabled>A안 CSV</button>
+        <button type="button" class="btn btn--dl" data-dl="json" disabled>A안 JSON</button>
         <button type="button" class="btn btn--dl" data-dl="b" disabled>B안 CSV</button>
         <button type="button" class="btn btn--dl" data-dl="c" disabled>C안 CSV</button>
+        <button type="button" class="btn btn--dl" data-dl="card" disabled
+                title="생성 조건·출처·면책을 담은 데이터카드(JSON) — 재현·논문 인용용">데이터카드</button>
+        <button type="button" class="btn btn--dl" data-dl="batch" disabled id="batchBtn"
+                title="배치 반복(고급 옵션)을 ZIP으로 — 반복 1이면 단일 복제">배치 ZIP</button>
         <span class="seed-used" id="seedUsed" hidden></span>
       </div>
     </form>
