@@ -36,6 +36,9 @@ data/DT_*.json
 data/*.xls
 data/*.xlsx
 data/synthetic_baseline*.json
+data/tmap_slots/
+data/tmap_multitime.json
+data/tmap_xcheck_*.csv
 
 # 정적 사이트가 fetch 하는 데이터는 커밋:
 #   data/hospitals.geojson, data/isochrones.geojson,
