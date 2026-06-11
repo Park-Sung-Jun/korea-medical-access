@@ -4,6 +4,16 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>상급종합병원 접근성·고령화 — 의료취약지 리포트</title>
+<meta name="description" content="상급종합병원 48곳까지의 실측 운전시간 × 고령화 × 검진·질환부담·응급의료로 전국 250개 시군구의 의료취약지를 식별하는 데이터 리포트." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="의료취약지 리포트 — 상급종합병원 접근성 × 고령화" />
+<meta property="og:description" content="실측 운전시간·고령화·검진 수검률·응급의료 접근성으로 본 전국 250개 시군구 의료취약지 분석." />
+<meta property="og:url" content="https://korea-medical-access.vercel.app/" />
+<meta property="og:image" content="https://korea-medical-access.vercel.app/og.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="ko_KR" />
+<meta name="twitter:card" content="summary_large_image" />
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"
         integrity="sha384-o5uz97et3bErHvpKfD4Jz4n0JfhJDWABFuF4NP+iEEDxE1VwMWJ19QGR0lqFZnr6"
         crossorigin="anonymous"></script>
@@ -109,6 +119,7 @@
     <a href="#supply">의료공급</a>
     <a href="#emergency">응급의료</a>
     <a href="#checkup">검진 수검률</a>
+    <a href="#trend">추이·성별</a>
     <a href="#health">질환부담</a>
     <a href="#traffic">교통검증</a>
     <a href="#ohca">생존율 검증</a>
@@ -299,6 +310,24 @@
     <div style="font-size:13px;font-weight:700;margin:22px 0 8px">암검진도 같은 패턴인가 — 지도의 <b>암검진 수검률</b> 뷰와 연동</div>
     <div class="corr" id="cancerCorr"></div>
     <div class="note" id="cancerNote" style="margin-top:10px"></div>
+  </section>
+
+  <section id="trend" class="reveal">
+    <h2>수검률 시계열·성별 — 코로나의 골짜기, 회복 안 된 3%p</h2>
+    <p class="sub">일반건강검진 수검률 2017~2024 추이(KOSIS, 1차검진 기준)와 성별 분리.
+       2020년 코로나로 급락한 수검률은 회복됐지만 <b>2017년 수준으로는 돌아가지 못했고</b>, 남녀 격차는 구조적으로 유지된다.</p>
+    <div class="corr" id="trendCorr"></div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">전국 수검률 추이 — 성별 분리 (2017~2024)</div>
+        <div id="chartTrend" class="chart"></div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">2024 시도별 성별 격차 (여 − 남, %p)</div>
+        <div id="chartSexGap" class="chart"></div>
+      </div>
+    </div>
+    <div class="note" id="trendNote" style="margin-top:14px"></div>
   </section>
 
   <section id="health" class="reveal">
@@ -654,7 +683,7 @@ function ohcaCorr(){
      시도(n=${o.n}) 해상도라 시군구 격차가 희석된다 — 접근성의 엄밀한 검증은 시군구 단위 생존율(질병관리청 급성심장정지조사)이 필요하다.`;
 }
 
-let C=null, H=null, E=null;
+let C=null, H=null, E=null, T=null;
 function checkupView(){
   if(!C)return;
   const rAcc=C.corr['access_min(ORS)'].r, rAge=C.corr.aging_index.r, rEld=C.corr.elderly_share.r;
@@ -740,6 +769,60 @@ function cancerView(){
      다만 고령화 결합은 일반검진(r=${C?C.corr.aging_index.r:'-0.62'})보다 약하고(r=${ca.corr.aging_index}) 접근성 결합은 비슷(r=${ca.corr.access_min}) —
      암검진은 내시경·영상 등 <b>장비 인프라가 필요해 거리 장벽이 상대적으로 더 작용</b>하는 것으로 읽힌다.
      저수검 유형화(위)의 처방이 암검진에도 그대로 적용된다.`;
+}
+
+function trendView(){
+  if(!T)return;
+  const n=T.national, ys=T.years, last=ys.length-1;
+  const i2017=0, i2020=ys.indexOf(2020);
+  const gap24=(n.female[last]-n.male[last]).toFixed(1);
+  const sg=T.sido_2024_sex||[], worst=sg[0], best=sg[sg.length-1];
+  document.getElementById('trendCorr').innerHTML=`
+    <div class="c"><b>${n.total[i2017]}%</b><span>2017 수검률 (역대 정점)</span></div>
+    <div class="c"><b style="color:var(--accent)">${n.total[i2020]}%</b><span>2020 코로나 급락</span></div>
+    <div class="c"><b>${n.total[last]}%</b><span>2024 — 정점 대비 ${(n.total[last]-n.total[i2017]).toFixed(1)}%p</span></div>
+    <div class="c"><b style="color:var(--accent)">${gap24}%p</b><span>2024 성별 격차 (여−남)</span></div>`;
+  document.getElementById('trendNote').innerHTML=
+    `<b>① 코로나의 골짜기:</b> 2020년 ${n.total[i2020]}%까지 떨어진 수검률은 2년 만에 75%대로 회복했지만,
+     2017년 정점(${n.total[i2017]}%)에는 8년째 못 미친다 — 미뤄진 검진의 일부는 영구 결손이 됐을 가능성이 있다.
+     <b>② 남녀 격차는 구조적:</b> 매년 남성이 2~3%p 더 받는다. 직장가입자(사업장 의무검진) 비중이 높은 남성이 유리한 구조로,
+     산업도시 <b>${worst.sido}</b>에서 격차가 ${worst.gap}%p로 가장 크다(남 ${worst.male}% vs 여 ${worst.female}%).
+     여성이 더 받는 곳은 <b>${sg.filter(x=>x.gap>0).map(x=>x.sido).join('·')}</b>뿐(최대 ${best.sido} +${best.gap}%p).
+     정책함의: 지역가입 여성·주부 대상 <b>찾아가는 검진·시간 유연화</b>가 격차 해소의 지렛대다.`;
+  trendCharts();
+}
+function trendCharts(){
+  const n=T.national, ys=T.years;
+  const c1=echarts.init(document.getElementById('chartTrend')); charts.trend=c1;
+  c1.setOption({
+    grid:{left:46,right:16,top:30,bottom:30},
+    legend:{top:0,textStyle:{color:'#6b7280',fontSize:11},itemWidth:16},
+    tooltip:{trigger:'axis',valueFormatter:v=>v+'%'},
+    xAxis:{type:'category',data:ys,...AX},
+    yAxis:{type:'value',min:62,max:82,axisLabel:{formatter:'{value}%',color:'#6b7280'},...AX},
+    series:[
+      {name:'합계',type:'line',data:n.total,lineStyle:{color:'#111',width:2.4},itemStyle:{color:'#111'},symbolSize:7,
+        markArea:{silent:true,itemStyle:{color:'rgba(220,38,38,.06)'},
+          data:[[{xAxis:2019},{xAxis:2021}]],
+          label:{show:false}},
+        markPoint:{data:[{coord:[ys.indexOf(2020),n.total[ys.indexOf(2020)]],value:'코로나',
+          symbol:'pin',symbolSize:1,label:{show:true,color:'#dc2626',fontSize:10,offset:[0,18]}}]}},
+      {name:'남자',type:'line',data:n.male,lineStyle:{color:'#2563eb',width:1.4},itemStyle:{color:'#2563eb'},symbolSize:5},
+      {name:'여자',type:'line',data:n.female,lineStyle:{color:'#dc2626',width:1.4},itemStyle:{color:'#dc2626'},symbolSize:5}
+    ]});
+  const sg=(T.sido_2024_sex||[]).slice();   // 이미 gap 오름차순(여 불리 → 여 우위)
+  const c2=echarts.init(document.getElementById('chartSexGap')); charts.sexgap=c2;
+  c2.setOption({
+    grid:{left:46,right:30,top:8,bottom:30},
+    tooltip:{trigger:'item',formatter:p=>{const d=sg[p.dataIndex];
+      return `<b>${d.sido}</b><br/>남 ${d.male}% · 여 ${d.female}%<br/>격차 ${d.gap>0?'+':''}${d.gap}%p`;}},
+    xAxis:{type:'value',axisLabel:{formatter:'{value}%p',color:'#6b7280'},...AX},
+    yAxis:{type:'category',data:sg.map(x=>x.sido),axisLabel:{color:'#374151',fontSize:11},...AX},
+    series:[{type:'bar',data:sg.map(x=>({value:x.gap,
+        itemStyle:{color:x.gap>0?'#dc2626':'#9ca3af',borderRadius:2}})),
+      barWidth:'62%',
+      label:{show:true,position:'right',fontSize:10,color:'#6b7280',
+        formatter:p=>(p.value>0?'+':'')+p.value}}]});
 }
 
 const AX={ axisLine:{lineStyle:{color:'#d1d5db'}}, axisLabel:{color:'#6b7280'},
@@ -880,8 +963,9 @@ function deepLinks(){
   try{ C=await (await fetch('data/checkup_stats.json')).json(); }catch(e){ C=null; }
   try{ H=await (await fetch('data/health_indicator_stats.json')).json(); }catch(e){ H=null; }
   try{ E=await (await fetch('data/emergency_stats.json')).json(); }catch(e){ E=null; }
+  try{ T=await (await fetch('data/checkup_trend.json')).json(); }catch(e){ T=null; }
   try{ SGG=(await (await fetch('data/sigungu_bivariate.geojson')).json()).features.map(f=>f.properties); }catch(e){ SGG=null; }
-  kpiCards(); tripleTable(); supply(); elderlyView(); checkupView(); healthView(); erView(); trafficView(); ohcaCorr();
+  kpiCards(); tripleTable(); supply(); elderlyView(); checkupView(); healthView(); erView(); trendView(); trafficView(); ohcaCorr();
   bubbleChart(); splitCharts(); wireSeg(); reveals(); deepLinks(); vviView(); sidoRollup(); distView();
 })();
 </script>
