@@ -14,6 +14,7 @@
 <meta property="og:image:height" content="630" />
 <meta property="og:locale" content="ko_KR" />
 <meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23111'/%3E%3Cpath d='M26 14h12v12h12v12H38v12H26V38H14V26h12z' fill='%23dc2626'/%3E%3C/svg%3E" />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"
       integrity="sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V"
       crossorigin="anonymous" />
@@ -160,6 +161,7 @@
         <label class="chk"><input type="checkbox" id="toggle-hosp" checked /> 병원 위치 표시</label>
         <label class="chk"><input type="checkbox" id="toggle-pyramid" /> 인구 피라미드(시군구 호버)</label>
         <label class="chk"><input type="checkbox" id="toggle-traffic" /> 교통반영 접근성(바이베리엇)</label>
+        <label class="chk" id="er-tier-row" style="display:none"><input type="checkbox" id="toggle-ercenter" /> 센터급 기준(중증응급)</label>
         <div class="op"><span>채움 투명도</span><input type="range" id="opacity" min="20" max="95" value="60" /></div>
         <div class="op" style="gap:6px;margin-top:9px">
           <button type="button" id="myloc" class="ctrl-btn" title="내 위치 기준 최근접 상급종합병원">📍 내 위치 최근접</button>
@@ -261,7 +263,7 @@ function addAppLayers(){
   if(DATA.sgg&&!map.getLayer('sgg-cancer'))map.addLayer({id:'sgg-cancer',type:'fill',source:'sgg',layout:{visibility:'none'},
     paint:{'fill-color':classMatch('cancer_rate',CHECKUP),'fill-opacity':op}},before);
   if(DATA.sgg&&!map.getLayer('sgg-er'))map.addLayer({id:'sgg-er',type:'fill',source:'sgg',layout:{visibility:'none'},
-    paint:{'fill-color':['match',['get','er_class'],'B1',ERB.B1,'B2',ERB.B2,'B3',ERB.B3,'B4',ERB.B4,'#e8e8e8'],'fill-opacity':op}},before);
+    paint:{'fill-color':erMatch('er_class'),'fill-opacity':op}},before);
   if(DATA.sgg&&!map.getLayer('sgg-disease'))map.addLayer({id:'sgg-disease',type:'fill',source:'sgg',layout:{visibility:'none'},
     paint:{'fill-color':classMatch('disease_rate',SEVHI),'fill-opacity':op}},before);
   if(DATA.sgg&&!map.getLayer('sgg-metabolic'))map.addLayer({id:'sgg-metabolic',type:'fill',source:'sgg',layout:{visibility:'none'},
@@ -311,11 +313,24 @@ function addAppLayers(){
 }
 function setVis(id,v){if(map.getLayer(id))map.setLayoutProperty(id,'visibility',v?'visible':'none');}
 
+function erMatch(field){
+  return ['match',['get',field],'B1',ERB.B1,'B2',ERB.B2,'B3',ERB.B3,'B4',ERB.B4,'#e8e8e8'];
+}
 function applyView(){
   const isoOn=view==='iso',agingOn=view==='aging',bivOn=view==='bivar',chkOn=view==='checkup',disOn=view==='disease',metOn=view==='metabolic',canOn=view==='cancer',erOn=view==='er';
   setVis('iso-fill',isoOn);setVis('iso-line',isoOn);setVis('sgg-aging',agingOn);setVis('sgg-bivar',bivOn);
   setVis('sgg-checkup',chkOn);setVis('sgg-disease',disOn);setVis('sgg-metabolic',metOn);setVis('sgg-cancer',canOn);
   setVis('sgg-er',erOn);setVis('emg-pt',erOn);setVis('emg-label',erOn);
+  document.getElementById('er-tier-row').style.display=erOn?'':'none';
+  if(erOn)applyErTier();
+  renderLegend();
+}
+function applyErTier(){
+  if(!map.getLayer('sgg-er'))return;
+  const c=document.getElementById('toggle-ercenter').checked;
+  map.setPaintProperty('sgg-er','fill-color',erMatch(c?'er_center_class':'er_class'));
+  const cls=c?['권역응급의료센터','지역응급의료센터']:Object.keys(ERPT);
+  ['emg-pt','emg-label'].forEach(l=>{if(map.getLayer(l))map.setFilter(l,['in',['get','cls'],['literal',cls]]);});
   renderLegend();
 }
 function applySggToggle(){const on=document.getElementById('toggle-sgg').checked;
@@ -397,12 +412,16 @@ function renderLegend(){
   else if(view==='checkup'){h=`<h2>일반건강검진 수검률 (2024)</h2>
     ${row(CHECKUP.C1,'하위 ⅓ · 낮음(취약)')}${row(CHECKUP.C2,'중간 ⅓')}${row(CHECKUP.C3,'상위 ⅓ · 높음')}
     <div class="note">전국 75.6% · 시군구 66~83%<br/>접근성과 <b>약상관</b>(r −0.21), 고령화와 <b>강상관</b>(r −0.62)<br/>KOSIS 국민건강검진 · 성별 합계</div>`;}
-  else if(view==='er'){h=`<h2>응급의료기관 접근성 (최근접 운전시간)</h2>
+  else if(view==='er'){
+    const ctr=document.getElementById('toggle-ercenter')?.checked;
+    h=`<h2>응급의료 접근성 — ${ctr?'센터급(중증응급)':'지정기관(기초응급)'}</h2>
     ${row(ERB.B1,'≤10분')}${row(ERB.B2,'10–20분')}${row(ERB.B3,'20–30분')}${row(ERB.B4,'30분 초과 · 취약')}
     <div class="row" style="margin-top:6px"><span class="sw" style="background:${ERPT['권역응급의료센터']};border-radius:50%"></span>권역응급의료센터
-    &nbsp;<span class="sw" style="background:${ERPT['지역응급의료센터']};border-radius:50%"></span>지역센터
-    &nbsp;<span class="sw" style="background:${ERPT['지역응급의료기관']};border-radius:50%"></span>지역기관</div>
-    <div class="note">법정 지정 응급의료기관 418곳(신고기관 제외) 기준<br/>E-Gen(국립중앙의료원) · ORS Matrix 실측</div>`;}
+    &nbsp;<span class="sw" style="background:${ERPT['지역응급의료센터']};border-radius:50%"></span>지역센터${ctr?'':`
+    &nbsp;<span class="sw" style="background:${ERPT['지역응급의료기관']};border-radius:50%"></span>지역기관`}</div>
+    <div class="note">${ctr
+      ?'권역+지역응급의료센터 183곳 — 중증응급 대응 기준<br/>30분 초과 72곳 · 60분 초과 10곳'
+      :'법정 지정 응급의료기관 418곳(신고기관 제외) 기준<br/>30분 초과 18곳'}<br/>E-Gen(국립중앙의료원) · ORS Matrix 실측</div>`;}
   else if(view==='cancer'){h=`<h2>암검진 수검률 (2024)</h2>
     ${row(CHECKUP.C1,'하위 ⅓ · 낮음(취약)')}${row(CHECKUP.C2,'중간 ⅓')}${row(CHECKUP.C3,'상위 ⅓ · 높음')}
     <div class="note">전국 60.2% · 시군구 51~68%<br/>일반검진과 r +0.73 동행 · 고령화 r −0.46(일반검진보다 약함)<br/>암검진별 계 · 수검/대상인원 · KOSIS</div>`;}
@@ -533,6 +552,7 @@ document.getElementById('basemap').addEventListener('change',e=>{const st=basema
 document.getElementById('toggle-sgg').addEventListener('change',applySggToggle);
 document.getElementById('toggle-hosp').addEventListener('change',applyHospToggle);
 document.getElementById('toggle-traffic').addEventListener('change',applyTraffic);
+document.getElementById('toggle-ercenter').addEventListener('change',applyErTier);
 document.getElementById('toggle-pyramid').addEventListener('change',e=>{if(!e.target.checked)document.getElementById('pyramid').style.display='none';});
 document.getElementById('opacity').addEventListener('input',e=>{const o=+e.target.value/100;
   ['iso-fill','sgg-aging','sgg-bivar','sgg-checkup','sgg-cancer','sgg-disease','sgg-metabolic','sgg-er'].forEach(l=>{if(map.getLayer(l))map.setPaintProperty(l,'fill-opacity',o);});});

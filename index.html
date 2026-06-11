@@ -14,6 +14,7 @@
 <meta property="og:image:height" content="630" />
 <meta property="og:locale" content="ko_KR" />
 <meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23111'/%3E%3Cpath d='M26 14h12v12h12v12H38v12H26V38H14V26h12z' fill='%23dc2626'/%3E%3C/svg%3E" />
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"
         integrity="sha384-o5uz97et3bErHvpKfD4Jz4n0JfhJDWABFuF4NP+iEEDxE1VwMWJ19QGR0lqFZnr6"
         crossorigin="anonymous"></script>
@@ -327,6 +328,8 @@
         <div id="chartSexGap" class="chart"></div>
       </div>
     </div>
+    <div style="font-size:13px;font-weight:700;margin:22px 0 8px">연령별 수검률 (2024) — 양끝이 빠진다</div>
+    <div id="chartAge" class="chart"></div>
     <div class="note" id="trendNote" style="margin-top:14px"></div>
   </section>
 
@@ -788,7 +791,11 @@ function trendView(){
      <b>② 남녀 격차는 구조적:</b> 매년 남성이 2~3%p 더 받는다. 직장가입자(사업장 의무검진) 비중이 높은 남성이 유리한 구조로,
      산업도시 <b>${worst.sido}</b>에서 격차가 ${worst.gap}%p로 가장 크다(남 ${worst.male}% vs 여 ${worst.female}%).
      여성이 더 받는 곳은 <b>${sg.filter(x=>x.gap>0).map(x=>x.sido).join('·')}</b>뿐(최대 ${best.sido} +${best.gap}%p).
-     정책함의: 지역가입 여성·주부 대상 <b>찾아가는 검진·시간 유연화</b>가 격차 해소의 지렛대다.`;
+     <b>③ 연령은 양끝이 빠진다:</b> 40대 후반 ${T.age_2024?T.age_2024.total[6]:81.4}%로 정점을 찍고
+     <b>20–24세 ${T.age_2024?T.age_2024.total[1]:52.5}% · 85세+ ${T.age_2024?T.age_2024.total[14]:28.6}%</b>로 급락한다.
+     특히 85세+ 여성은 ${T.age_2024?T.age_2024.female[14]:24.6}%(남 ${T.age_2024?T.age_2024.male[14]:37.1}%) —
+     질환부담 섹션의 '역돌봄'이 연령 축에서도 재현된다(가장 아픈 초고령 여성이 가장 안 받는다).
+     정책함의: 지역가입 여성·주부 대상 <b>찾아가는 검진·시간 유연화</b>, 초고령층 <b>방문검진</b>이 격차 해소의 지렛대다.`;
   trendCharts();
 }
 function trendCharts(){
@@ -823,6 +830,21 @@ function trendCharts(){
       barWidth:'62%',
       label:{show:true,position:'right',fontSize:10,color:'#6b7280',
         formatter:p=>(p.value>0?'+':'')+p.value}}]});
+  const a=T.age_2024;
+  if(a){
+    const c3=echarts.init(document.getElementById('chartAge')); charts.age=c3;
+    c3.setOption({
+      grid:{left:46,right:16,top:30,bottom:34},
+      legend:{top:0,textStyle:{color:'#6b7280',fontSize:11},itemWidth:16},
+      tooltip:{trigger:'axis',valueFormatter:v=>v+'%'},
+      xAxis:{type:'category',data:a.bands,axisLabel:{color:'#6b7280',fontSize:10,interval:0,rotate:32},...AX},
+      yAxis:{type:'value',min:20,max:90,axisLabel:{formatter:'{value}%',color:'#6b7280'},...AX},
+      series:[
+        {name:'합계',type:'line',data:a.total,lineStyle:{color:'#111',width:2.4},itemStyle:{color:'#111'},symbolSize:6},
+        {name:'남자',type:'line',data:a.male,lineStyle:{color:'#2563eb',width:1.4},itemStyle:{color:'#2563eb'},symbolSize:4},
+        {name:'여자',type:'line',data:a.female,lineStyle:{color:'#dc2626',width:1.4},itemStyle:{color:'#dc2626'},symbolSize:4}
+      ]});
+  }
 }
 
 const AX={ axisLine:{lineStyle:{color:'#d1d5db'}}, axisLabel:{color:'#6b7280'},

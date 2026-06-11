@@ -9,6 +9,7 @@
   - national: 연도별 합계/남자/여자 수검률
   - sido    : 시도별 연도별 합계 수검률
   - sido_2024_sex: 시도별 2024 남/여 수검률·격차(여-남, %p)
+  - age_2024: 연령구간별(DT_35007_N002_1) 2024 남/여/합계 수검률
 
 usage: python scripts/build_checkup_trend.py
 """
@@ -74,6 +75,41 @@ def rate(acc, y, region, sex):
     return round(s["d"] / s["t"] * 100, 1)
 
 
+AGE_BANDS = ["19세 이하", "20 ~ 24세", "25 ~ 29세", "30 ~ 34세", "35 ~ 39세",
+             "40 ~ 44세", "45 ~ 49세", "50 ~ 54세", "55 ~ 59세", "60 ~ 64세",
+             "65 ~ 69세", "70 ~ 74세", "75 ~ 79세", "80 ~ 84세", "85세 이상"]
+
+
+def collect_age():
+    """연령별(N002_1) 2024 — acc[(band, sex)] = {'t','d'}"""
+    acc = {}
+    with open(DATA / "DT_35007_N002_1.csv", encoding="utf-8-sig", newline="") as fp:
+        for r in csv.DictReader(fp):
+            if r.get("PRD_DE") != "2024":
+                continue
+            band = (r.get("C1_NM") or "").strip()
+            sex = (r.get("C2_NM") or "").strip()
+            if band not in AGE_BANDS or sex not in SEXES:
+                continue
+            v = num(r.get("DT"))
+            if v is None:
+                continue
+            slot = acc.setdefault((band, sex), {"t": None, "d": None})
+            item = (r.get("ITM_NM") or "").strip()
+            if item == "대상인원":
+                slot["t"] = v
+            elif item == "수검인원":
+                slot["d"] = v
+
+    def rt(band, sex):
+        s = acc.get((band, sex))
+        return round(s["d"] / s["t"] * 100, 1) if s and s["t"] and s["d"] is not None else None
+    short = ["≤19세" if b == "19세 이하" else "85세+" if b == "85세 이상"
+             else b.replace(" ~ ", "–").replace("세", "") + "세" for b in AGE_BANDS]
+    return {"bands": short,
+            **{SEXES[k]: [rt(b, k) for b in AGE_BANDS] for k in SEXES}}
+
+
 def main():
     acc = collect()
     out = {
@@ -81,7 +117,8 @@ def main():
         "national": {SEXES[k]: [rate(acc, y, "계", k) for y in YEARS] for k in SEXES},
         "sido": {s: [rate(acc, y, s, "합계") for y in YEARS] for s in SIDO},
         "sido_2024_sex": [],
-        "source": "KOSIS DT_35007_N001(~2017 1차검진)·N001_1(2018~) 일반건강검진 대상·수검",
+        "age_2024": collect_age(),
+        "source": "KOSIS DT_35007_N001(~2017 1차검진)·N001_1(2018~)·N002_1(연령별) 일반건강검진 대상·수검",
     }
     for s in SIDO:
         m, f = rate(acc, "2024", s, "남자"), rate(acc, "2024", s, "여자")
